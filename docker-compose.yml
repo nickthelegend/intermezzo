@@ -17,6 +17,7 @@ services:
     command: server
 
   pawn:
+    platform: linux/amd64
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -26,7 +27,5 @@ services:
     container_name: pawn
     env_file:
       - .env
-    volumes:
-      - .:/opt/app/
     ports:
       - "3000:3000"

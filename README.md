@@ -62,7 +62,7 @@ Now you can open to see endpoint documentation at http://localhost:3000/docs/
 
 But before you can use the API, you need to unseal vault and / or set up the vault keys, if they are not already set up
 
-> **Note**: If you make any changes to the `.env` file, you must redeploy the application for the changes to take effect. You can do this by running:
+> **Note**: Create your own `.env` from `.env.example`. If you make any changes to the `.env` file, you must redeploy the application for the changes to take effect. You can do this by running:
 
 ```bash
 docker compose down pawn

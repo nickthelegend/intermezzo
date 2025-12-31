@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Param, Post, Request } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { CreateAssetDto } from './create-asset.dto';
 import { CreateAssetResponseDto } from './create-asset-response.dto';
@@ -27,7 +27,7 @@ import { AlgoTransferResponseDto } from './algo-transfer-response.dto';
   description: 'Unauthorized',
 })
 export class Wallet {
-  constructor(private readonly walletService: WalletService) {}
+  constructor(private readonly walletService: WalletService) { }
 
   // Endpoint to get user details
   @Get('wallet/users/:user_id/')
@@ -48,8 +48,7 @@ export class Wallet {
   @Get('wallet/manager/')
   @ApiOperation({
     summary: 'Get Wallet Manager',
-    description:
-      'Endpoint to get manager details, including the **Algorand** `public_address` of the **Manager**',
+    description: 'Endpoint to get manager details, including the **Algorand** `public_address` of the **Manager**',
   })
   @ApiOkResponse({
     description: 'The details of the manager',
@@ -76,12 +75,10 @@ export class Wallet {
   @ApiBadRequestResponse({
     description: 'Bad Request',
   })
-  async assetsBalances(
-    @Request() request: any,
-    @Param('user_id') user_id: string
-  ): Promise<AccountAssetsDto> {
+  async assetsBalances(@Request() request: any, @Param('user_id') user_id: string): Promise<AccountAssetsDto> {
     const accountAssets: AssetHolding[] = await this.walletService.getAssetHoldings(user_id, request.vault_token);
-    const userPublicAddress: string = (await this.walletService.getUserInfo(user_id, request.vault_token)).public_address;
+    const userPublicAddress: string = (await this.walletService.getUserInfo(user_id, request.vault_token))
+      .public_address;
     const accountAssetsDto: AccountAssetsDto = {
       address: userPublicAddress,
       assets: accountAssets,
@@ -142,8 +139,7 @@ export class Wallet {
   @Post('wallet/transactions/transfer-asset/')
   @ApiOperation({
     summary: 'Transfer Asset',
-    description:
-      'Send an **Algorand** `Asset` from the **Manager** to a **User**.',
+    description: 'Send an **Algorand** `Asset` from the **Manager** to a **User**.',
   })
   @ApiCreatedResponse({
     description: 'The asset has been successfully transferred.',
