@@ -47,7 +47,6 @@ describe('Wallet Controller', () => {
         public_address: expectedPublicAddress,
         algoBalance: expectedAmount,
       });
-      [];
       const requestMock = { vault_token: vaultToken };
 
       const result = await walletController.userDetail(requestMock, userId);

@@ -290,7 +290,7 @@ describe('App E2E', () => {
 
         expect(response.status).toBe(201); // HTTP 201 Created
         expect(typeof response.data.transaction_id).toEqual('string');
-      } catch (error) {
+      } catch {
         throw new Error(
           `Unexpected Error.\nYou have to add some algo to manager addrees: ${await getManagerAddress()}\nYou can use https://bank.testnet.algorand.network/`,
         );

@@ -4,7 +4,6 @@ import { AuthService } from '../auth/auth.service';
 import { VaultService } from '../vault/vault.service';
 import { ChainService } from '../chain/chain.service';
 import { ConfigService } from '@nestjs/config';
-import { create } from 'domain';
 import createMockInstance from 'jest-create-mock-instance';
 import { randomBytes } from 'crypto';
 import { AlgorandEncoder } from '@algorandfoundation/algo-models';
@@ -14,17 +13,11 @@ describe('WalletCLI', () => {
   let authServiceMock: jest.Mocked<AuthService>;
   let vaultServiceMock: jest.Mocked<VaultService>;
   let chainServiceMock: jest.Mocked<ChainService>;
-  let configServiceMock: jest.Mocked<ConfigService>;
-
-  let authService: AuthService;
-  let vaultService: VaultService;
-  let chainService: ChainService;
 
   beforeEach(async () => {
     authServiceMock = createMockInstance(AuthService);
     vaultServiceMock = createMockInstance(VaultService);
     chainServiceMock = createMockInstance(ChainService);
-    configServiceMock = createMockInstance(ConfigService);
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WalletCLI],
@@ -46,9 +39,6 @@ describe('WalletCLI', () => {
     }).compile();
 
     walletCLI = module.get<WalletCLI>(WalletCLI);
-    authService = module.get<AuthService>(AuthService);
-    vaultService = module.get<VaultService>(VaultService);
-    chainService = module.get<ChainService>(ChainService);
   });
 
   beforeEach(() => {
@@ -103,7 +93,6 @@ describe('WalletCLI', () => {
       const data = randomBytes(32);
       const keyPath = 'key-path';
       const keyName = 'key-name';
-      const pubKey: Buffer = randomBytes(32);
       const signature: Buffer = Buffer.from(`vault:v1:${data.toString('base64')}`, 'utf-8');
 
       vaultServiceMock.sign.mockResolvedValueOnce(signature);

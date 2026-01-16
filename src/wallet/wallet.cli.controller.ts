@@ -6,6 +6,7 @@ import { AlgorandEncoder, AlgorandTransactionCrafter } from '@algorandfoundation
 import { ChainService } from '../chain/chain.service';
 import { VaultService } from '../vault/vault.service';
 import { AuthService } from '../auth/auth.service';
+import { TruncatedPostTransactionsResponse } from 'src/chain/algo-node-responses';
 
 @Controller()
 export class WalletCLI {

@@ -10,6 +10,15 @@ import { HttpErrorByCode } from '@nestjs/common/utils/http-error-by-code.util';
 import { HttpService } from '@nestjs/axios';
 import { AxiosResponse } from 'axios';
 import { safeStringify } from '../util';
+import {
+  AccountAssetsResponse,
+  AssetHolding,
+  TruncatedAccountAssetResponse,
+  TruncatedAccountResponse,
+  TruncatedAssetHolding,
+  TruncatedPostTransactionsResponse,
+  TruncatedSuggestedParamsResponse,
+} from './algo-node-responses';
 
 @Injectable()
 export class ChainService {

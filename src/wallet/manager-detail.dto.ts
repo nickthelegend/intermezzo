@@ -1,5 +1,6 @@
 import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { AssetHolding } from 'src/chain/algo-node-responses';
 
 export class ManagerDetailDto {
   @IsString()

@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { AlgorandEncoder } from '@algorandfoundation/algo-models';
 import { ManagerDetailDto } from './manager-detail.dto';
 import { plainToClass } from 'class-transformer';
+import { AssetHolding } from 'src/chain/algo-node-responses';
 @Injectable()
 export class WalletService {
   constructor(
@@ -153,16 +154,12 @@ export class WalletService {
    * @param fromUserId The ID of the user sending the asset.
    * @param toAddress The address of the user receiving the asset.
    * @param amount The amount of the asset to be transferred.
-   * @param lease An optional 32 byte lease encoded as base64.
-   * @param note An optional transaction note.
    */
   async transferAlgoToAddress(
     vault_token: string,
     fromUserId: string,
     toAddress: string,
     amount: number,
-    lease?: string,
-    note?: string,
   ): Promise<string> {
     let signedTx: Uint8Array;
     let fromAddress: string;

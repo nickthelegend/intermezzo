@@ -2,7 +2,6 @@ import { VaultService } from './vault.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { Axios, AxiosResponse } from 'axios';
-import { AlgorandEncoder } from '@algorandfoundation/algo-models';
 import { randomBytes } from 'crypto';
 import { HttpErrorByCode } from '@nestjs/common/utils/http-error-by-code.util';
 import createMockInstance from 'jest-create-mock-instance';
