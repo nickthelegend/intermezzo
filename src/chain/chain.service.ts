@@ -1,7 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-  AlgorandEncoder,
   AlgorandTransactionCrafter,
   AssetParamsBuilder,
   AssetTransferTxBuilder,
@@ -19,6 +18,12 @@ import {
   TruncatedPostTransactionsResponse,
   TruncatedSuggestedParamsResponse,
 } from './algo-node-responses';
+import {
+  decodeTransaction,
+  encodeTransaction,
+  encodeTransactionRaw,
+  groupTransactions,
+} from '@algorandfoundation/algokit-utils/transact';
 
 @Injectable()
 export class ChainService {
@@ -49,16 +54,9 @@ export class ChainService {
    * @returns The list of transactions with the group ID set.
    */
   setGroupID(txns: Uint8Array[]): Uint8Array[] {
-    const groupId = new AlgorandEncoder().computeGroupId(txns);
-
-    const grouped: Uint8Array[] = [];
-    for (const txn of txns) {
-      const decodedTx = new AlgorandEncoder().decodeTransaction(txn);
-      decodedTx.grp = groupId;
-      grouped.push(new AlgorandEncoder().encodeTransaction(decodedTx));
-    }
-
-    return grouped;
+    const decodedTxns = txns.map(decodeTransaction);
+    const groupedTxns = groupTransactions(decodedTxns);
+    return groupedTxns.map(encodeTransaction);
   }
 
   async craftAssetCreateTx(

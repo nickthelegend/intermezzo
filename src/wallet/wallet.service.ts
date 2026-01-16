@@ -8,7 +8,7 @@ import { ManagerDetailDto } from './manager-detail.dto';
 import { plainToClass } from 'class-transformer';
 import { AssetHolding } from 'src/chain/algo-node-responses';
 import { Address } from '@algorandfoundation/algokit-utils';
-import { AlgorandEncoder } from '@algorandfoundation/algo-models';
+import { decodeTransaction } from '@algorandfoundation/algokit-utils/transact';
 
 @Injectable()
 export class WalletService {
@@ -301,11 +301,8 @@ export class WalletService {
 
     const signedTxs: Uint8Array[] = [];
     for (const tx of unSignedGroupedTxns) {
-      const encoder: AlgorandEncoder = new AlgorandEncoder();
-      const isUserTx: boolean =
-        new Address(Buffer.from(encoder.decodeTransaction(tx).snd)).toString() == userPublicAddress;
-      const isManagerTx: boolean =
-        new Address(Buffer.from(encoder.decodeTransaction(tx).snd)).toString() == managerPublicAddress;
+      const isUserTx: boolean = decodeTransaction(tx).sender.toString() == userPublicAddress;
+      const isManagerTx: boolean = decodeTransaction(tx).sender.toString() == managerPublicAddress;
 
       if (isUserTx) {
         signedTxs.push(await this.signTxAsUser(userId, tx, vault_token));
