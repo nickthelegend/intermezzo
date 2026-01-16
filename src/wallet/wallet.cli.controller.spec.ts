@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import createMockInstance from 'jest-create-mock-instance';
 import { randomBytes } from 'crypto';
 import { AlgorandEncoder } from '@algorandfoundation/algo-models';
+import { TruncatedPostTransactionsResponse } from 'src/chain/algo-node-responses';
 
 describe('WalletCLI', () => {
   let walletCLI: WalletCLI;

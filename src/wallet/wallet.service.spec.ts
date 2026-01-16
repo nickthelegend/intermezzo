@@ -9,6 +9,11 @@ import { ManagerDetailDto } from './manager-detail.dto';
 import { plainToClass } from 'class-transformer';
 import { randomBytes } from 'crypto';
 import { AlgorandEncoder } from '@algorandfoundation/algo-models';
+import {
+  TruncatedAccountAssetResponse,
+  TruncatedAccountResponse,
+  TruncatedSuggestedParamsResponse,
+} from 'src/chain/algo-node-responses';
 
 describe('WalletService', () => {
   let walletService: WalletService;

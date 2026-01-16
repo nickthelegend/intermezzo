@@ -9,6 +9,7 @@ import { AssetTransferResponseDto } from './asset-transfer-response.dto';
 import { AssetClawbackRequestDto } from './asset-clawback-request.dto';
 import { plainToClass } from 'class-transformer';
 import { AlgoTransferRequestDto } from './algo-transfer-request.dto';
+import { AssetHolding } from 'src/chain/algo-node-responses';
 
 describe('Wallet Controller', () => {
   let walletController: Wallet;
@@ -98,14 +99,7 @@ describe('Wallet Controller', () => {
 
       const result = await walletController.algoTransferTx(requestMock, bodyRequest);
 
-      expect(mockWalletService.transferAlgoToAddress).toHaveBeenCalledWith(
-        vaultToken,
-        userId,
-        toAddress,
-        amount,
-        undefined,
-        undefined,
-      );
+      expect(mockWalletService.transferAlgoToAddress).toHaveBeenCalledWith(vaultToken, userId, toAddress, amount);
       expect(result).toEqual({ transaction_id: expectedTransactionId });
     });
   });

@@ -4,6 +4,7 @@ import { AlgorandEncoder } from '@algorandfoundation/algo-models';
 import createMockInstance from 'jest-create-mock-instance';
 import { HttpService } from '@nestjs/axios';
 import { Axios } from 'axios';
+import { TruncatedAccountResponse } from 'src/chain/algo-node-responses';
 
 describe('ChainService', () => {
   let chainService: ChainService;
