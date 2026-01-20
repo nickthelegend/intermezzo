@@ -4,6 +4,7 @@ import { AlgorandEncoder } from '@algorandfoundation/algo-models';
 import createMockInstance from 'jest-create-mock-instance';
 import { HttpService } from '@nestjs/axios';
 import { Axios } from 'axios';
+import { TruncatedAccountResponse } from 'src/chain/algo-node-responses';
 
 describe('ChainService', () => {
   let chainService: ChainService;
@@ -184,9 +185,9 @@ describe('ChainService', () => {
       // Use a valid dummy Algorand address for all address options.
       const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
       const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
-      const lease = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
-      const leaseB64 = Buffer.from(lease).toString("base64")
-      const note = "note: note"
+      const lease = 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD';
+      const leaseB64 = Buffer.from(lease).toString('base64');
+      const note = 'note: note';
 
       const result = await chainService.craftAssetTransferTx(dummyAddress1, dummyAddress2, 1234n, 2, leaseB64, note);
 
@@ -247,20 +248,17 @@ describe('ChainService', () => {
         status: 200,
       });
       // Use a valid dummy Algorand address for all address options.
-      const dummyAddress1 =
-        'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
-      const dummyAddress2 =
-        'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
-      const dummyAddress3 =
-        'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
+      const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
+      const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
+      const dummyAddress3 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const clawbackAddress = dummyAddress1;
       const senderAddress = dummyAddress2;
       const receiverAddress = dummyAddress3;
       const assetId = 1234n;
       const amount = 2n;
-      const note = "note: clawback note";
-      const lease = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD";
-      const leaseB64 = Buffer.from(lease).toString("base64");
+      const note = 'note: clawback note';
+      const lease = 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD';
+      const leaseB64 = Buffer.from(lease).toString('base64');
       const result = await chainService.craftAssetClawbackTx(
         clawbackAddress,
         senderAddress,
@@ -277,9 +275,7 @@ describe('ChainService', () => {
         fee: 1000,
         fv: 1,
         gen: 'test-genesis-id',
-        gh: new Uint8Array([
-          181, 235, 45, 250, 7, 167, 122, 200, 172, 250, 22, 172,
-        ]),
+        gh: new Uint8Array([181, 235, 45, 250, 7, 167, 122, 200, 172, 250, 22, 172]),
         lx: new Uint8Array(Buffer.from(lease)),
         lv: 1001,
         note: new Uint8Array(Buffer.from(note)),
@@ -298,12 +294,9 @@ describe('ChainService', () => {
         status: 200,
       });
       // Use a valid dummy Algorand address for all address options.
-      const dummyAddress1 =
-        'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
-      const dummyAddress2 =
-        'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
-      const dummyAddress3 =
-        'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
+      const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
+      const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
+      const dummyAddress3 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const clawbackAddress = dummyAddress1;
       const senderAddress = dummyAddress2;
       const receiverAddress = dummyAddress3;
@@ -322,9 +315,7 @@ describe('ChainService', () => {
         fee: 1000,
         fv: 1,
         gen: 'test-genesis-id',
-        gh: new Uint8Array([
-          181, 235, 45, 250, 7, 167, 122, 200, 172, 250, 22, 172,
-        ]),
+        gh: new Uint8Array([181, 235, 45, 250, 7, 167, 122, 200, 172, 250, 22, 172]),
         lv: 1001,
         snd: new AlgorandEncoder().decodeAddress(clawbackAddress),
         type: 'axfer',
@@ -373,7 +364,7 @@ describe('ChainService', () => {
 
   describe('waitConfirmation()', () => {
     it('wait for confirmation', async () => {
-      let suggested_params_response = {
+      const suggested_params_response = {
         data: {
           'min-fee': 1000,
           'last-round': 1,
@@ -381,7 +372,7 @@ describe('ChainService', () => {
         status: 200,
       };
 
-      let pending_info_waiting_response = {
+      const pending_info_waiting_response = {
         data: {
           'pool-error': '',
           txn: {
@@ -399,7 +390,7 @@ describe('ChainService', () => {
         },
       };
 
-      let pending_info_confirmed_response = {
+      const pending_info_confirmed_response = {
         data: {
           'asset-index': 735204972,
           'confirmed-round': 49353526,
@@ -419,7 +410,7 @@ describe('ChainService', () => {
         },
       };
 
-      let wait_for_block_after_response = {
+      const wait_for_block_after_response = {
         data: {},
       };
 
@@ -463,14 +454,18 @@ describe('ChainService', () => {
         data: {
           address: publicAddress,
           amount: 1000,
-          assets: [{"asset-id": 1}, {"asset-id": 2}],
+          assets: [{ 'asset-id': 1 }, { 'asset-id': 2 }],
           'min-balance': 123,
         },
         status: 201,
       });
 
       const result = await chainService.getAccountDetail(publicAddress);
-      expect(result).toEqual({ amount: 1000n, assets: [{assetId: 1}, {assetId: 2}], minBalance: 123n } as TruncatedAccountResponse);
+      expect(result).toEqual({
+        amount: 1000n,
+        assets: [{ assetId: 1 }, { assetId: 2 }],
+        minBalance: 123n,
+      } as TruncatedAccountResponse);
     });
   });
 

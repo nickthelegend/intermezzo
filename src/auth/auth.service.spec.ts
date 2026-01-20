@@ -47,5 +47,5 @@ describe('AuthService', () => {
     const result = await authService.authGithub(githubPAT);
     expect(result).toEqual('test_vault_token');
     expect(vaultServiceMock.authGithub).toHaveBeenCalledWith(githubPAT);
-  })
+  });
 });

@@ -16,9 +16,9 @@ export class VaultService {
   ) {}
 
   /**
-   * 
+   *
    * @param token - personal access token
-   * @returns 
+   * @returns
    */
   async authGithub(token: string): Promise<string> {
     const baseUrl: string = this.configService.get<string>('VAULT_BASE_URL');
@@ -41,15 +41,13 @@ export class VaultService {
 
       // log with stringify
       Logger.log('Github login result: ', JSON.stringify(result.data));
-    }
-    catch (error) {
+    } catch (error) {
       Logger.error('Failed to login with Personal Access Token', JSON.stringify(error));
       throw new HttpErrorByCode[error.response.status]('VaultException');
     }
     const vault_token: string = result.data.auth.client_token;
     return vault_token;
   }
-
 
   async transitCreateKey(keyName: string, transitKeyPath: string, token: string): Promise<Buffer> {
     // https://developer.hashicorp.com/vault/api-docs/secret/transit#create-key
@@ -75,7 +73,7 @@ export class VaultService {
     }
 
     const publicKeyBase64: string = result.data.data.keys['1'].public_key;
-    return Buffer.from(publicKeyBase64, 'base64')
+    return Buffer.from(publicKeyBase64, 'base64');
   }
 
   /**
@@ -97,7 +95,7 @@ export class VaultService {
       Logger.log('getKey url: ', url);
 
       result = await this.httpService.axiosRef.get(url, {
-        headers: { 
+        headers: {
           'X-Vault-Token': token,
           'Content-Type': 'application/json',
           ...(vaultNamespace ? { 'X-Vault-Namespace': vaultNamespace } : {}),
@@ -109,7 +107,7 @@ export class VaultService {
 
     const publicKeyBase64: string = result.data.data.keys['1'].public_key;
     // return new AlgorandEncoder().encodeAddress(Buffer.from(publicKeyBase64, 'base64'));
-    return Buffer.from(publicKeyBase64, 'base64')
+    return Buffer.from(publicKeyBase64, 'base64');
   }
 
   public async sign(keyName: string, transitPath: string, data: Uint8Array, token: string): Promise<Buffer> {
@@ -134,11 +132,11 @@ export class VaultService {
       throw new HttpErrorByCode[error.response.status]('VaultException');
     }
 
-    return result.data.data.signature
+    return result.data.data.signature;
   }
 
   /**
-   * 
+   *
    * @param roleId - Role ID of the AppRole
    * @param secretId - Secret ID of the AppRole
    * @returns - client token based on the AppRole
@@ -155,15 +153,11 @@ export class VaultService {
 
     let result: AxiosResponse;
     try {
-      result = await this.httpService.axiosRef.post(
-        `${baseUrl}/v1/auth/approle/login`,
-        {
-          role_id: roleId,
-          secret_id: secretId,
-        },
-      );
-    }
-    catch (error) {
+      result = await this.httpService.axiosRef.post(`${baseUrl}/v1/auth/approle/login`, {
+        role_id: roleId,
+        secret_id: secretId,
+      });
+    } catch (error) {
       throw new HttpErrorByCode[error.response.status]('VaultException');
     }
     const token: string = result.data.auth.client_token;
@@ -236,9 +230,9 @@ export class VaultService {
     const users: string[] = result.data.data.keys;
 
     // for each add the public address to an array of user object (id, public address)
-    let usersObjs: UserInfoDto[] = [];
+    const usersObjs: UserInfoDto[] = [];
     for (let i = 0; i < users.length; i++) {
-      let userObj = {
+      const userObj = {
         public_address: (await this.getKey(users[i], transitKeyPath, token)).toString('base64'), // TODO: rename public_address that is actually the public key in base64 format
         user_id: users[i],
       };

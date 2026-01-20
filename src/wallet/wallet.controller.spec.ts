@@ -9,6 +9,7 @@ import { AssetTransferResponseDto } from './asset-transfer-response.dto';
 import { AssetClawbackRequestDto } from './asset-clawback-request.dto';
 import { plainToClass } from 'class-transformer';
 import { AlgoTransferRequestDto } from './algo-transfer-request.dto';
+import { AssetHolding } from 'src/chain/algo-node-responses';
 
 describe('Wallet Controller', () => {
   let walletController: Wallet;
@@ -42,8 +43,11 @@ describe('Wallet Controller', () => {
       const expectedAmount = '666';
 
       // Set up the WalletService mock for getUserPublicAddress.
-      mockWalletService.getUserInfo.mockResolvedValueOnce({ user_id: userId, public_address: expectedPublicAddress, algoBalance: expectedAmount });
-[]
+      mockWalletService.getUserInfo.mockResolvedValueOnce({
+        user_id: userId,
+        public_address: expectedPublicAddress,
+        algoBalance: expectedAmount,
+      });
       const requestMock = { vault_token: vaultToken };
 
       const result = await walletController.userDetail(requestMock, userId);
@@ -57,7 +61,11 @@ describe('Wallet Controller', () => {
       const vaultToken = 'vault-token-abc';
       const expectedPublicAddress = 'PUBLIC_ADDRESS_XYZ';
 
-      mockWalletService.userCreate.mockResolvedValueOnce({ user_id: userId, public_address: expectedPublicAddress, algoBalance: '0' });
+      mockWalletService.userCreate.mockResolvedValueOnce({
+        user_id: userId,
+        public_address: expectedPublicAddress,
+        algoBalance: '0',
+      });
 
       const result: UserInfoResponseDto = await walletController.userCreate(
         { vault_token: vaultToken },
@@ -87,21 +95,14 @@ describe('Wallet Controller', () => {
         toAddress,
         amount,
         fromUserId: userId,
-      }
+      };
 
       const result = await walletController.algoTransferTx(requestMock, bodyRequest);
 
-      expect(mockWalletService.transferAlgoToAddress).toHaveBeenCalledWith(
-        vaultToken,
-        userId,
-        toAddress,
-        amount,
-        undefined,
-        undefined
-      );
+      expect(mockWalletService.transferAlgoToAddress).toHaveBeenCalledWith(vaultToken, userId, toAddress, amount);
       expect(result).toEqual({ transaction_id: expectedTransactionId });
-    })
-  })
+    });
+  });
 
   describe('assetsBalances', () => {
     it('should return asset balances for a user', async () => {
@@ -119,13 +120,17 @@ describe('Wallet Controller', () => {
       };
       const requestMock = { vault_token: vaultToken };
       mockWalletService.getAssetHoldings.mockResolvedValueOnce(expectedAssets);
-      mockWalletService.getUserInfo.mockResolvedValueOnce({ user_id: userId, public_address: expectedPublicAddress, algoBalance: algoBalanceExpected });
+      mockWalletService.getUserInfo.mockResolvedValueOnce({
+        user_id: userId,
+        public_address: expectedPublicAddress,
+        algoBalance: algoBalanceExpected,
+      });
       const result = await walletController.assetsBalances(requestMock, userId);
       expect(mockWalletService.getAssetHoldings).toHaveBeenCalledWith(userId, vaultToken);
       expect(mockWalletService.getUserInfo).toHaveBeenCalledWith(userId, vaultToken);
       expect(result).toEqual(expectedAccountAssetsDto);
     });
-  })
+  });
 
   describe('createAsset', () => {
     it('should create an asset transaction and return the transaction id', async () => {
@@ -161,7 +166,7 @@ describe('Wallet Controller', () => {
         userId: 'user456',
         amount: 10,
         lease: '9kykoZ1IpuOAqhzDgRVaVY2ME0ZlCNrUpnzxpXlEF/s=',
-        note: "This is my note. I am not proud of it but it is what it is."
+        note: 'This is my note. I am not proud of it but it is what it is.',
       };
       const expectedTransactionId = 'tx987654321';
 
@@ -194,18 +199,15 @@ describe('Wallet Controller', () => {
         userId: 'user456',
         amount: 10,
         lease: '9kykoZ1IpuOAqhzDgRVaVY2ME0ZlCNrUpnzxpXlEF/s=',
-        note: "This is my note. I am not proud of it but it is what it is.",
+        note: 'This is my note. I am not proud of it but it is what it is.',
       };
       const expectedTransactionId = 'tx987654321';
-      mockWalletService.clawbackAsset.mockResolvedValueOnce(
-        expectedTransactionId,
-      );
+      mockWalletService.clawbackAsset.mockResolvedValueOnce(expectedTransactionId);
       const requestMock = { vault_token: vaultToken };
-      const result: AssetTransferResponseDto =
-        await walletController.assetClawbackTx(
-          requestMock,
-          assetClawbackRequest,
-        );
+      const result: AssetTransferResponseDto = await walletController.assetClawbackTx(
+        requestMock,
+        assetClawbackRequest,
+      );
       expect(mockWalletService.clawbackAsset).toHaveBeenCalledWith(
         vaultToken,
         assetClawbackRequest.assetId,

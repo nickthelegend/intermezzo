@@ -1,12 +1,8 @@
-import {
-  Body,
-  Controller,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from './constants';
 import { SignInRequestDto, SignInResponseDto } from './sign-in.dto';
-import { ApiCreatedResponse, ApiOperation, ApiUnauthorizedResponse } from "@nestjs/swagger";
+import { ApiCreatedResponse, ApiOperation, ApiUnauthorizedResponse } from '@nestjs/swagger';
 
 @Controller()
 export class Auth {
@@ -24,7 +20,7 @@ export class Auth {
   })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   async signIn(@Body() signInParams: SignInRequestDto) {
-    let signInResponse: SignInResponseDto = await this.authService.signIn(signInParams.vault_token);
+    const signInResponse: SignInResponseDto = await this.authService.signIn(signInParams.vault_token);
 
     return signInResponse;
   }

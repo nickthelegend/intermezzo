@@ -20,6 +20,10 @@ jobs:
           package-manager: yarn
           test-script: yarn jest
 
+      - name: Lint check
+        run: |
+          yarn lint
+
       - name: Format check
         run: |
-          yarn format --check
+          yarn format

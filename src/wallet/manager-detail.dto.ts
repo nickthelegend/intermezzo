@@ -1,5 +1,6 @@
 import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { AssetHolding } from 'src/chain/algo-node-responses';
 
 export class ManagerDetailDto {
   @IsString()
@@ -40,6 +41,6 @@ export class ManagerDetailDto {
     type: 'string',
     example: '1000000',
     description: 'The balance of Algorand held by the manager in microAlgos',
-  })  
+  })
   algoBalance?: string;
 }

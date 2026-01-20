@@ -37,8 +37,7 @@ export class AlgoTransferRequestDto {
   @MaxLength(1000)
   @ApiProperty({
     example: 'Note to all: notes are public',
-    description:
-      'Optional public note to attach to transaction',
+    description: 'Optional public note to attach to transaction',
   })
   note?: string;
 }
