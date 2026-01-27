@@ -144,6 +144,14 @@ export class AppCallRequestDto {
   })
   onComplete?: number
 
+
+  @IsString()
+    @ApiProperty({
+        example: '1234',
+        description: 'The id of the User that is transferring Algos',
+    })
+  fromUserId: string;
+
   @IsString()
   @IsOptional()
   @ApiProperty({

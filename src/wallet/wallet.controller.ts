@@ -23,6 +23,7 @@ import { AlgoTransferResponseDto } from './algo-transfer-response.dto';
 import { AppCallRequestDto } from './app-call-request.dto';
 import { AppCallResponseDto } from './app-call-response.dto';
 import { GroupRequestDto } from './group-request.dto';
+import { GroupResponseDto } from './group-response.dto';
 
 @ApiBearerAuth()
 @Controller()
@@ -292,6 +293,11 @@ export class Wallet {
     @Request() request: any,
     @Body() groupRequestDto: GroupRequestDto,
   ){
-
+    return {
+      group_id: await this.walletService.groupTransaction(
+        request.vault_token,
+        groupRequestDto,
+      ),
+    } as GroupResponseDto;
   }
 }
