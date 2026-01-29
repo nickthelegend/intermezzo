@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { SignalClient } from '@algorandfoundation/liquid-client';
+import { createSignalSessionMachine } from './signal-fsm';
 
 type ClientType = 'offer' | 'answer';
 
@@ -62,6 +63,10 @@ export class SignalClientManager implements OnApplicationShutdown {
       const client = new SignalClient(url);
       session.client = client;
 
+      // Attach a small FSM to the session to coordinate incoming messages and sends
+      const machine = createSignalSessionMachine(session);
+      (session as any).machine = machine;
+
       // Socket wiring: keep handlers but remove verbose diagnostics.
       const socket = (client as any).socket;
       if (socket) {
@@ -90,32 +95,12 @@ export class SignalClientManager implements OnApplicationShutdown {
       if (typeof client.on === 'function') {
         client.on('link-message', (msg: any) => {
           this.logger.debug(`link-message for id=${id}: ${JSON.stringify(msg)}`);
-          session.lastActivity = Date.now();
-          // Optionally store wallet info in session
-          (session as any).wallet = msg.wallet;
-
-          const existingDc: any = (session as any).dataChannel;
-          this.logger.debug(
-            `link-message: wallet=${msg.wallet}, hasDataChannel=${!!existingDc}, ` +
-            `dcState=${existingDc?.readyState ?? 'n/a'} for id=${id}`,
-          );
-
-          // If we already have a data channel, send a ping immediately.
-          const dc: any = (session as any).dataChannel;
-          if (dc && typeof dc.send === 'function') {
-            const payload = JSON.stringify({ type: 'ping', ts: Date.now() });
-            this.logger.debug(`Sending ping over data channel for id=${id}: ${payload}`);
-            try {
-              dc.send(payload);
-            } catch (e: any) {
-              this.logger.warn(`Failed to send ping for ${id}: ${e?.message || e}`);
-            }
-          } else {
-            // Mark that we owe a ping once the data channel is ready
-            (session as any).pendingPing = true;
-            this.logger.debug(
-              `Data channel not yet ready for id=${id}, will send ping when available`,
-            );
+          try {
+            session.lastActivity = Date.now();
+            const m = (session as any).machine;
+            if (m && typeof m.handle === 'function') m.handle({ type: 'link-message', payload: msg });
+          } catch (e: any) {
+            this.logger.warn(`link-message handling failed for id=${id}: ${e?.message || e}`);
           }
         });
       }
@@ -155,10 +140,9 @@ export class SignalClientManager implements OnApplicationShutdown {
               `dcType=${dc?.constructor?.name ?? typeof dc}`,
             );
             session.state = 'awaiting-answer';
-            // Store data channel if available
+            // Store data channel if available and notify machine
             if (dc) {
               (session as any).dataChannel = dc;
-
               try {
                 this.logger.debug(
                   `DataChannel attached for id=${id}, readyState=${dc.readyState}, ` +
@@ -168,42 +152,41 @@ export class SignalClientManager implements OnApplicationShutdown {
                 // best-effort logging only
               }
 
-              // Attach message handler
+              // Inform the machine that peer resolved with a DC
+              try {
+                const m = (session as any).machine;
+                if (m && typeof m.handle === 'function') m.handle({ type: 'peer-resolved', payload: { dc } });
+              } catch { /* swallow machine errors */ }
+
+              // Attach message handler to delegate to machine
               dc.onmessage = (event: any) => {
                 this.logger.debug(`DataChannel message for id=${id}: ${event.data}`);
                 session.lastActivity = Date.now();
-                // Optionally process transaction signature or other protocol messages here
+                const m = (session as any).machine;
+                if (m && typeof m.handle === 'function') m.handle({ type: 'dc-message', payload: event.data });
               };
 
               // Attach open/close handlers if supported so we know if the channel ever becomes usable
               try {
                 (dc as any).onopen = () => {
                   this.logger.debug(`DataChannel onopen for id=${id}, readyState=${dc.readyState}`);
+                  const m = (session as any).machine;
+                  if (m && typeof m.handle === 'function') m.handle({ type: 'dc-open' });
                 };
                 (dc as any).onclose = () => {
                   this.logger.debug(
                     `DataChannel onclose for id=${id}, readyState=${dc.readyState}`,
                   );
+                  const m = (session as any).machine;
+                  if (m && typeof m.handle === 'function') m.handle({ type: 'dc-close' });
                 };
                 (dc as any).onerror = (err: any) => {
                   this.logger.warn(`[SignalClientManager] DataChannel onerror for id=${id}: ${err?.message || err}`);
+                  const m = (session as any).machine;
+                  if (m && typeof m.handle === 'function') m.handle({ type: 'dc-error', payload: err });
                 };
               } catch {
                 // ignore; some implementations may not expose these
-              }
-
-              // If a ping was requested before the data channel was ready, send it now
-              if ((session as any).pendingPing && typeof dc.send === 'function') {
-                const payload = JSON.stringify({ type: 'ping', ts: Date.now() });
-                this.logger.debug(
-                  `Sending deferred ping over data channel for id=${id}: ${payload}`,
-                );
-                try {
-                  dc.send(payload);
-                  (session as any).pendingPing = false;
-                } catch (e: any) {
-                  this.logger.warn(`Failed to send deferred ping for ${id}: ${e?.message || e}`);
-                }
               }
             }
           })

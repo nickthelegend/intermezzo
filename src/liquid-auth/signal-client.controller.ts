@@ -45,7 +45,7 @@ export class SignalClientController {
       ],
     };
 
-    const url = 'https://debug.liquidauth.com';
+    const url = 'https://beetle-never.ngrok-free.app' //'https://debug.liquidauth.com';
     this.logger.log('Starting Liquid Auth session');
     try {
       const session = await this.manager.startOffer(url, undefined, rtcConfig);
