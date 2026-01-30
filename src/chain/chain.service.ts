@@ -215,7 +215,7 @@ export class ChainService {
       this.configService.get('GENESIS_HASH'),
     );
     builder.addSender(managerPublicAddress);
-    builder.addFee(suggested_params.minFee);
+    builder.addFee(fee ?? suggested_params.minFee);
     builder.addFirstValidRound(suggested_params.lastRound);
     builder.addLastValidRound(suggested_params.lastRound + 1000n);
 

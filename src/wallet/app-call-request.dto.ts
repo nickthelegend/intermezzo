@@ -102,12 +102,6 @@ export class AppCallRequestDto {
             ],
             "returns": {
                 "type": "void"
-            },
-            "actions": {
-                "create": [],
-                "call": [
-                    "NoOp"
-                ]
             }
         },
     description: 'The arguments to be passed to the app as a JSON object',

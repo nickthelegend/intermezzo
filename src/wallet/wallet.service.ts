@@ -542,9 +542,9 @@ export class WalletService {
       }
     }
 
-    await this.chainService.submitTransaction(signedTxs);
+    const txid = (await this.chainService.submitTransaction(signedTxs)).txid;
 
-    return encoder.encodeAddress(Buffer.from(groupIdBytes));
+    return txid;
   }
 }
 
