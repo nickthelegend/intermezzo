@@ -2,10 +2,8 @@ export type State = 'idle' | 'ready' | 'processing' | 'closed' | 'error';
 
 export type Event = { type: string; payload?: any };
 
-import * as utils from './utils';
-import { fromBase64Url } from '@algorandfoundation/liquid-client';
-import { decodeTransaction } from '@algorandfoundation/algokit-utils/transact';
-import { Address } from '@algorandfoundation/algokit-utils';
+import { fromBase64Url, toBase64URL } from '@algorandfoundation/liquid-client';
+import axios from 'axios';
 
 export type SessionContext = any; // keep loose to fit existing session shape
 
@@ -48,23 +46,24 @@ export function createSignalSessionMachine(session: SessionContext) {
   // ensure queue exists
   if (!session.sendQueue) session.sendQueue = [] as any[];
 
-  // Precompute a known test address (Richie) asynchronously and stash on the session.
-  // This runs fire-and-forget so the machine creation is synchronous.
-  (async () => {
-    try {
-      const richie_mnemonic =
-        'peace blast planet december chalk scheme elbow bicycle horse crunch dad sun veteran under print vendor mammal mail typical discover erosion winter bridge path';
-      const root = await utils.createRootKeyFromMnemonic(richie_mnemonic);
-      const richieWallet = new utils.HDWalletService(root);
-      const key = await richieWallet.generateAlgorandAddressKey(0, 0);
-      const addr = utils.encodeAddress(key);
-      (session as any).richieAddress = addr;
-      // store wallet instance for signing later
-      (session as any).richieWallet = richieWallet;
-    } catch (e) {
-      // don't fail machine creation if derivation fails
-    }
-  })();
+  // If a sponsor URL is available, attempt to populate sponsorAddress from Sponsor /info.
+  if (!session.sponsorAddress && (session.sponsorUrl || process.env.SPONSOR_URL)) {
+    (async () => {
+      try {
+        const sponsorUrl: string = session.sponsorUrl || process.env.SPONSOR_URL!;
+        const r = await axios.get(sponsorUrl.replace(/\/$/, '') + '/info');
+        if (r?.data?.address) {
+          session.sponsorAddress = r.data.address;
+          try { console.debug('[SignalFSM] resolved sponsorAddress from /info', session.sponsorAddress); } catch { }
+        } else if (r?.data?.public_key_base64) {
+          session.sponsorPubKeyB64 = r.data.public_key_base64;
+          try { console.debug('[SignalFSM] resolved sponsorPubKeyB64 from /info', session.sponsorPubKeyB64); } catch { }
+        }
+      } catch (e) {
+        // ignore — validation will catch missing sponsorAddress later
+      }
+    })();
+  }
 
   const sendIfPossible: ActionFn = (ctx) => {
     const dc: any = ctx.dataChannel;
@@ -72,9 +71,14 @@ export function createSignalSessionMachine(session: SessionContext) {
     while (ctx.sendQueue && ctx.sendQueue.length) {
       const item = ctx.sendQueue.shift();
       try {
+        // Debug: log outgoing items so we can trace what's sent over the DC
+        try { console.debug('[SignalFSM] sending on dataChannel', typeof item === 'string' ? item : JSON.stringify(item)); } catch { }
+        // Extra: if we're sending the sponsor address, emit a clear marker
+        try { if (item && typeof item === 'object' && (item as any).address) console.debug('[SignalFSM] sending sponsor address over DC', (item as any).address); } catch { }
         dc.send(typeof item === 'string' ? item : JSON.stringify(item));
       } catch (e) {
         // On failure, push back and stop flushing.
+        console.warn('[SignalFSM] dataChannel send failed, requeueing', e?.message || e);
         ctx.sendQueue.unshift(item);
         break;
       }
@@ -82,10 +86,12 @@ export function createSignalSessionMachine(session: SessionContext) {
   };
 
   const sendPing: ActionFn = (ctx) => {
-    const payload = { type: 'ping', ts: Date.now() };
+    const addr = (ctx as any).sponsorAddress;
+    const payload = addr ? { type: 'address', address: addr } : { type: 'pong', ts: Date.now() };
     const dc: any = ctx.dataChannel;
     if (dc && typeof dc.send === 'function') {
       try {
+        try { if (payload && (payload as any).my_address) console.debug('[SignalFSM] ping handler sending my_address', (payload as any).my_address); } catch { }
         dc.send(JSON.stringify(payload));
         ctx.pendingPing = false;
       } catch (e) {
@@ -96,6 +102,32 @@ export function createSignalSessionMachine(session: SessionContext) {
       ctx.pendingPing = true;
       ctx.sendQueue.push(payload);
     }
+
+    // If we don't yet have a sponsor address, try to resolve it via Sponsor /info
+    try {
+      const addrPresent = !!(ctx as any).sponsorAddress;
+      const sponsorUrl = (ctx as any).sponsorUrl || process.env.SPONSOR_URL;
+      if (!addrPresent && sponsorUrl) {
+        // fire-and-forget: when resolved, enqueue the address for immediate send
+        axios.get(sponsorUrl.replace(/\/$/, '') + '/info')
+          .then(r => {
+            const addr = r?.data?.address;
+            if (addr) {
+              try { console.debug('[SignalFSM] resolved sponsorAddress from /info in ping', addr); } catch { }
+              (ctx as any).sponsorAddress = addr;
+              // enqueue address and attempt immediate flush (use canonical shape)
+              try { ctx.sendQueue.unshift({ type: 'address', address: addr }); } catch { }
+              try { if (ctx.dataChannel && ctx.dataChannel.readyState === 'open') sendIfPossible(ctx); } catch { }
+            } else if (r?.data?.public_key_base64) {
+              try { console.debug('[SignalFSM] resolved sponsorPubKeyB64 from /info in ping'); } catch { }
+              (ctx as any).sponsorPubKeyB64 = r.data.public_key_base64;
+            }
+          })
+          .catch(err => {
+            try { console.debug('[SignalFSM] Sponsor /info failed in ping', err?.message || err); } catch { }
+          });
+      }
+    } catch (e) { /* swallow */ }
   };
 
   // Focused transitions for data-channel protocol only. The machine does NOT
@@ -114,25 +146,12 @@ export function createSignalSessionMachine(session: SessionContext) {
           // knows we're present. Also flush the send queue if the
           // channel is already open.
           try {
-            if (ctx.wallet) {
-              // enqueue ping (or send) immediately
-              sendPing(ctx);
-              // enqueue our test address after the ping so tests that
-              // assert the first message is a ping remain valid.
-              if ((ctx as any).richieAddress) {
-                ctx.sendQueue.push({ address: (ctx as any).richieAddress });
-              } else {
-                // derive address asynchronously and enqueue when ready
-                (async () => {
-                  try {
-                    const addr = await utils.getAddressFromMnemonic(
-                      'peace blast planet december chalk scheme elbow bicycle horse crunch dad sun veteran under print vendor mammal mail typical discover erosion winter bridge path',
-                    );
-                    ctx.sendQueue.push({ address: addr });
-                    if (ctx.dataChannel && ctx.dataChannel.readyState === 'open') sendIfPossible(ctx);
-                  } catch { }
-                })();
-              }
+            // Always send a ping when a peer resolves. If we already
+            // know the sponsor address, enqueue it for the peer.
+            sendPing(ctx);
+            if ((ctx as any).sponsorAddress) {
+              try { console.debug('[SignalFSM] enqueueing sponsorAddress on peer-resolved', (ctx as any).sponsorAddress); } catch { }
+              ctx.sendQueue.push({ type: 'address', address: (ctx as any).sponsorAddress });
             }
             if (ctx.dataChannel && ctx.dataChannel.readyState === 'open') sendIfPossible(ctx);
           } catch { }
@@ -142,6 +161,10 @@ export function createSignalSessionMachine(session: SessionContext) {
       'dc-open': {
         next: 'ready',
         action: (ctx) => {
+          // If we already know the sponsor address, enqueue and flush it immediately
+          if ((ctx as any).sponsorAddress) {
+            try { console.debug('[SignalFSM] enqueueing sponsorAddress on dc-open', (ctx as any).sponsorAddress); ctx.sendQueue.push({ type: 'address', address: (ctx as any).sponsorAddress }); } catch { }
+          }
           sendIfPossible(ctx);
         },
       },
@@ -214,7 +237,7 @@ export function createSignalSessionMachine(session: SessionContext) {
     ping: (ctx) => {
       ctx.lastActivity = Date.now();
       const dc: any = ctx.dataChannel;
-      const addr = (ctx as any).richieAddress;
+      const addr = (ctx as any).sponsorAddress;
       const payload = addr ? { my_address: addr } : { type: 'pong', ts: Date.now() };
       if (dc && typeof dc.send === 'function') {
         try {
@@ -232,80 +255,64 @@ export function createSignalSessionMachine(session: SessionContext) {
       ctx.lastActivity = Date.now();
       const payload = ev?.payload ?? {};
       const id = payload.id;
+      // dedupe: avoid processing the same sign-request twice
+      try {
+        if (!((ctx as any)._inflightSignIds)) (ctx as any)._inflightSignIds = new Set<string>();
+        const inflight: Set<string> = (ctx as any)._inflightSignIds;
+        if (id && inflight.has(id)) {
+          try { console.debug('[SignalFSM] duplicate sign-request ignored', id); } catch { }
+          return;
+        }
+        if (id) inflight.add(id);
+      } catch { }
+
       // acknowledge receipt immediately
       ctx.sendQueue.push({ type: 'sign-ack', id });
 
       // Async signing flow: try to sign the provided prefix/tx and enqueue response
       (async () => {
         try {
-          const wallet: any = (ctx as any).richieWallet;
-          if (!wallet) throw new Error('No wallet available for signing');
+          // Prefer Sponsor HTTP signing backend. Caller may set session.sponsorUrl.
+          const sponsorUrl: string | undefined = (ctx as any).sponsorUrl || process.env.SPONSOR_URL;
+          if (!sponsorUrl) throw new Error('Sponsor signing backend not configured');
 
-          const parsedBytes: Uint8Array = fromBase64Url(payload.bytesToSign)
-          const transaction = decodeTransaction(parsedBytes);
-
-          // Only accept `bytesToSign` for now (base64url string or raw bytes)
-          let prefix: any = payload.bytesToSign;
-          let prefixBytes: Uint8Array;
+          // Pawn acts as a thin proxy: Sponsor performs validation and signing.
+          const prefix: any = payload.bytesToSign;
           if (!prefix) throw new Error('No bytesToSign provided to sign');
-          if (typeof prefix === 'string') {
-            // base64url string
-            prefixBytes = fromBase64Url(prefix);
-            try {
-              const transaction = decodeTransaction(prefixBytes);
+          const prefixBytes: Uint8Array = fromBase64Url(prefix);
 
-              // 1) fee check
-              if (transaction.fee !== 2000n) {
-                throw new Error(`Invalid fee: ${String(transaction.fee)}`);
-              }
-
-              console.log("Fee is OK, 2000 microAlgo")
-
-              // 2) amount check (for payment transactions)
-              const amount = transaction.payment?.amount ?? transaction.amount ?? 0n;
-              if (amount !== 0n) {
-                throw new Error(`Invalid amount: ${String(amount)}`);
-              }
-
-              console.log("Amount is OK, 0 microAlgo")
-
-              // 3) sender check: compare sender against the precomputed `richieAddress`
-              const expectedAddr: string | undefined = (ctx as any).richieAddress;
-              if (expectedAddr) {
-                const senderAddr = utils.encodeAddress(transaction.sender.publicKey as Uint8Array);
-                if (senderAddr !== expectedAddr) {
-                  throw new Error(`Invalid sender: ${senderAddr} !== ${expectedAddr}`);
-                }
-              }
-            } catch (e) {
-              // send failure response and stop
-              ctx.sendQueue.push({ type: 'sign-response', id, error: String(e) });
-              if (ctx.dataChannel && ctx.dataChannel.readyState === 'open') sendIfPossible(ctx);
-              return;
-            }
-          } else if (prefix instanceof Uint8Array) {
-            prefixBytes = prefix;
-          } else if (Array.isArray(prefix)) {
-            prefixBytes = Uint8Array.from(prefix);
-          } else if (Buffer.isBuffer(prefix)) {
-            prefixBytes = Uint8Array.from(prefix);
-          } else {
-            throw new Error('Unsupported bytesToSign format');
-          }
-
-          const sig = await wallet.signAlgorandTransaction(0, 0, prefixBytes);
-          const sigBuf = Buffer.from(sig);
-          const toBase64Url = (b: Buffer) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-          const sigB64url = toBase64Url(sigBuf);
-          const sig32B64url = toBase64Url(sigBuf.slice(0, 32));
-          console.debug('[SignalFSM] signature created', { id, signature32: sig32B64url });
-          console.debug('[SignalFSM] enqueueing sign-response', { id, signature32: sig32B64url });
-          ctx.sendQueue.push({ type: 'sign-response', id, signature: sigB64url, signature32: sig32B64url });
+          // Request Sponsor to sign the provided transaction bytes. Sponsor will call Vault transit.
+          const inputB64 = Buffer.from(prefixBytes).toString('base64');
+          const signReq = {
+            key: 'sponsor',
+            transit_path: 'pawn/managers',
+            input_b64: inputB64,
+          };
+          const sponsorEndpoint = sponsorUrl.replace(/\/$/, '') + '/sign';
+          const sponsorResp = await axios.post(sponsorEndpoint, signReq, { headers: { 'Content-Type': 'application/json' } });
+          const vaultSig: string | undefined = sponsorResp?.data?.signature;
+          if (!vaultSig) throw new Error('Sponsor did not return a signature');
+          console.log("vaultSig: ", vaultSig);
+          const parts = vaultSig.split(':');
+          const b64Part = parts.length >= 3 ? parts[2] : parts[parts.length - 1];
+          const sigBuf = Buffer.from(b64Part, 'base64');
+          // Use the provided helper to convert raw signature bytes to base64url
+          const sigBytes = Uint8Array.from(sigBuf);
+          const sigB64url = toBase64URL(sigBytes);
+          console.debug('[SignalFSM] signature created', { id });
+          console.debug('[SignalFSM] enqueueing sign-response', { id });
+          // Send the canonical base64url signature to the peer with type and id for correlation
+          ctx.sendQueue.push({ type: 'sign-response', id, signature: sigB64url });
           if (ctx.dataChannel && ctx.dataChannel.readyState === 'open') sendIfPossible(ctx);
         } catch (e) {
-          // signal failure to caller
-          ctx.sendQueue.push({ type: 'sign-response', id, error: String(e) });
+          // signal failure to caller; preserve Sponsor-provided error details when available
+          const axiosErr = e as any;
+          const sponsorErr = axiosErr?.response?.data;
+          const details = sponsorErr?.error ? `${sponsorErr.error}${sponsorErr.details ? `: ${sponsorErr.details}` : ''}` : undefined;
+          ctx.sendQueue.push({ type: 'sign-response', id, error: details || String(e) });
           if (ctx.dataChannel && ctx.dataChannel.readyState === 'open') sendIfPossible(ctx);
+        } finally {
+          try { if (id && (ctx as any)._inflightSignIds) (ctx as any)._inflightSignIds.delete(id); } catch { }
         }
       })();
     },

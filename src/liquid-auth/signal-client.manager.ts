@@ -1,6 +1,9 @@
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SignalClient } from '@algorandfoundation/liquid-client';
+import axios from 'axios';
 import { createSignalSessionMachine } from './signal-fsm';
+import { VaultService } from '../vault/vault.service';
 
 type ClientType = 'offer' | 'answer';
 
@@ -26,8 +29,10 @@ export class SignalClientManager implements OnApplicationShutdown {
   private readonly absoluteCapMs = 1000 * 60 * 60; // 60 minutes
 
   private pruneTimer: NodeJS.Timeout | null = null;
+  // Cache manager resolution promises to avoid repeated Vault calls
+  private managerResolutionCache = new Map<string, Promise<{ address: string; pub?: Uint8Array; vaultBackend?: VaultService }>>();
 
-  constructor() {
+  constructor(private readonly vaultService?: VaultService, private readonly configService?: ConfigService) {
     // Periodic prune sweep
     this.pruneTimer = setInterval(() => this.pruneExpired(), 60_000);
   }
@@ -55,6 +60,52 @@ export class SignalClientManager implements OnApplicationShutdown {
     // (session as any).dataChannel: RTCDataChannel | any
     // (session as any).pendingPing: boolean
     (session as any).pendingPing = false;
+
+
+    // Resolve sponsor address by querying Sponsor /info first (no Vault tokens required).
+    try {
+      const sponsorUrl = this.configService?.get?.('SPONSOR_URL') || process.env.SPONSOR_URL;
+      if (sponsorUrl) {
+        try {
+          this.logger.debug(`Attempting to resolve sponsor via HTTP at ${sponsorUrl}`);
+          const r = await axios.get((sponsorUrl as string).replace(/\/$/, '') + '/info');
+          this.logger.debug(`Sponsor /info response for id=${id}: ${JSON.stringify(r.data).substring(0, 200)}`);
+          if (r?.data?.address) {
+            (session as any).sponsorAddress = r.data.address;
+            if (r?.data?.public_key_base64) (session as any).sponsorPubKeyB64 = r.data.public_key_base64;
+            this.logger.debug(`Resolved sponsor via /info for id=${id}: ${(session as any).sponsorAddress}`);
+          }
+        } catch (err: any) {
+          this.logger.debug(`Sponsor HTTP resolution failed for id=${id}: ${err?.message || err}`);
+        }
+      }
+
+      // If sponsor wasn't resolved via HTTP, fall back to Vault-based resolution
+      if (!(session as any).sponsorAddress) {
+        const token: string | undefined = (session as any).vaultToken;
+        const cacheKey = token || '__no_token__';
+        if (!this.managerResolutionCache.has(cacheKey)) {
+          const p = (async (): Promise<{ address: string; pub?: Uint8Array; vaultBackend?: VaultService }> => {
+            if (this.vaultService && token) {
+              const pub = await this.vaultService.getManagerPublicKey(token);
+              const { AlgorandEncoder } = await import('@algorandfoundation/algo-models');
+              const addr = new AlgorandEncoder().encodeAddress(Buffer.from(pub));
+              return { address: addr, pub: Uint8Array.from(pub), vaultBackend: this.vaultService };
+            }
+            throw new Error('Vault not configured or manager token missing');
+          })();
+          this.managerResolutionCache.set(cacheKey, p);
+        }
+
+        const resolved = await this.managerResolutionCache.get(cacheKey)!;
+        (session as any).sponsorAddress = resolved.address;
+        if (resolved.pub) (session as any).sponsorPubKeyB64 = Buffer.from(resolved.pub).toString('base64');
+        if (resolved.vaultBackend) (session as any).vaultBackend = resolved.vaultBackend;
+        try { this.logger.debug(`Resolved sponsor via Vault for id=${id}: ${resolved.address}`); } catch { }
+      }
+    } catch (e) {
+      this.logger.warn(`Manager address resolution failed for id=${id}: ${e?.message || e}`);
+    }
 
     this.logger.debug(`startOffer called with url=${url}, id=${id}`);
     this.logger.debug(`startOffer: creating offer session id=${id}, rtcConfigSet=${!!rtcConfig}`);
@@ -155,6 +206,8 @@ export class SignalClientManager implements OnApplicationShutdown {
               // Inform the machine that peer resolved with a DC
               try {
                 const m = (session as any).machine;
+                // Diagnostic: log that we're notifying the FSM and whether sponsorAddress is present
+                try { this.logger.debug(`Notifying FSM peer-resolved for id=${id}, sponsorAddress=${(session as any).sponsorAddress}`); } catch { }
                 if (m && typeof m.handle === 'function') m.handle({ type: 'peer-resolved', payload: { dc } });
               } catch { /* swallow machine errors */ }
 

@@ -1,4 +1,4 @@
-.secrets/node_modules/*
+.secrets/
 !node_modules/.gitkeep
 dist/*
 test/coverage

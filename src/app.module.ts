@@ -7,7 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { SignalClientModule } from './liquid-auth/signal-client.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), AuthModule, WalletModule, VaultModule, ChainModule, SignalClientModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, WalletModule, VaultModule, ChainModule, SignalClientModule],
   controllers: [],
   providers: [],
 })

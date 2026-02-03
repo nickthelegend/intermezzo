@@ -25,6 +25,10 @@ RUN mkdir -p /opt/app && \
 # Copy projects folder into container's app folder
 COPY . /opt/app
 
+# Remove vendored external TypeScript sources so the root TypeScript build
+# doesn't attempt to compile them (they're packaged as npm tarballs instead).
+RUN rm -rf /opt/app/external || true
+
 RUN chown -R node:node /opt/app/
 
 # Change to app directory
