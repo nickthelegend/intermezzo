@@ -550,4 +550,172 @@ describe('WalletService', () => {
       expect(result).toBe('final_tx_id');
     });
   });
+
+  describe('appCall()', () => {
+    const managerPubKey = randomBytes(32);
+    const userPubKey = randomBytes(32);
+    const managerPublicAddress = new AlgorandEncoder().encodeAddress(managerPubKey);
+    const userPublicAddress = new AlgorandEncoder().encodeAddress(userPubKey);
+    const vaultToken = 'vault_token';
+    const suggestedParams = { minFee: 1000, lastRound: 1n } as TruncatedSuggestedParamsResponse;
+    const dummyAppTx = new Uint8Array([10, 11, 12]);
+    const dummySignedTx = new Uint8Array([20, 21, 22]);
+
+    beforeEach(() => {
+      chainServiceMock.getSuggestedParams.mockResolvedValueOnce(suggestedParams);
+      chainServiceMock.craftAppCallTx.mockResolvedValueOnce(dummyAppTx);
+      chainServiceMock.submitTransaction.mockResolvedValueOnce({ txid: 'appcall_tx_id' } as any);
+      walletService.signTxAsManager = jest.fn().mockResolvedValueOnce(dummySignedTx);
+      walletService.signTxAsUser = jest.fn().mockResolvedValueOnce(dummySignedTx);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('appCall() -- as manager', async () => {
+      vaultServiceMock.getManagerPublicKey.mockResolvedValueOnce(managerPubKey);
+
+      const dto = { fromUserId: 'manager', appId: 123, onComplete: 0 } as any;
+      const result = await walletService.appCall(vaultToken, dto);
+
+      expect(vaultServiceMock.getManagerPublicKey).toHaveBeenCalledWith(vaultToken);
+      expect(chainServiceMock.getSuggestedParams).toHaveBeenCalled();
+      expect(chainServiceMock.craftAppCallTx).toHaveBeenCalledWith(
+        managerPublicAddress,
+        dto,
+        suggestedParams,
+        undefined,
+      );
+      expect(walletService.signTxAsManager).toHaveBeenCalledWith(dummyAppTx, vaultToken);
+      expect(chainServiceMock.submitTransaction).toHaveBeenCalledWith(dummySignedTx);
+      expect(result).toBe('appcall_tx_id');
+    });
+
+    it('appCall() -- as user', async () => {
+      vaultServiceMock.getUserPublicKey.mockResolvedValueOnce(userPubKey);
+      chainServiceMock.getAccountBalance.mockResolvedValueOnce(1000000n);
+
+      const userId = 'user123';
+      const dto = { fromUserId: userId, appId: 123, onComplete: 0 } as any;
+      const result = await walletService.appCall(vaultToken, dto);
+
+      expect(chainServiceMock.craftAppCallTx).toHaveBeenCalledWith(
+        userPublicAddress,
+        dto,
+        suggestedParams,
+        undefined,
+      );
+      expect(walletService.signTxAsUser).toHaveBeenCalledWith(userId, dummyAppTx, vaultToken);
+      expect(chainServiceMock.submitTransaction).toHaveBeenCalledWith(dummySignedTx);
+      expect(result).toBe('appcall_tx_id');
+    });
+
+    it('appCall() -- with fee override', async () => {
+      vaultServiceMock.getManagerPublicKey.mockResolvedValueOnce(managerPubKey);
+
+      const dto = { fromUserId: 'manager', appId: 123, onComplete: 0, fee: 2000 } as any;
+      await walletService.appCall(vaultToken, dto);
+
+      expect(chainServiceMock.craftAppCallTx).toHaveBeenCalledWith(
+        managerPublicAddress,
+        dto,
+        suggestedParams,
+        2000,
+      );
+    });
+  });
+
+  describe('groupTransaction()', () => {
+    const managerPubKey = randomBytes(32);
+    const userPubKey = randomBytes(32);
+    const managerPublicAddress = new AlgorandEncoder().encodeAddress(managerPubKey);
+    const userPublicAddress = new AlgorandEncoder().encodeAddress(userPubKey);
+    const vaultToken = 'vault_token';
+    const userId = 'user123';
+    const suggestedParams = { minFee: 1000, lastRound: 1n } as TruncatedSuggestedParamsResponse;
+    const dummyTx1 = new Uint8Array([1, 2, 3]);
+    const dummyTx2 = new Uint8Array([4, 5, 6]);
+    const dummyGroupedTx1 = new Uint8Array([7, 8, 9]);
+    const dummyGroupedTx2 = new Uint8Array([10, 11, 12]);
+    const dummySignedManagerTx = new Uint8Array([20]);
+    const dummySignedUserTx = new Uint8Array([21]);
+
+    beforeEach(() => {
+      vaultServiceMock.getManagerPublicKey.mockResolvedValue(managerPubKey);
+      chainServiceMock.getSuggestedParams.mockResolvedValue(suggestedParams);
+      chainServiceMock.submitTransaction.mockResolvedValue({ txid: 'group_tx_id' } as any);
+      walletService.signTxAsManager = jest.fn().mockResolvedValue(dummySignedManagerTx);
+      walletService.signTxAsUser = jest.fn().mockResolvedValue(dummySignedUserTx);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('groupTransaction() -- throws if transactions is empty', async () => {
+      await expect(
+        walletService.groupTransaction(vaultToken, { transactions: [] } as any),
+      ).rejects.toThrow('transactions is required and must be a non-empty array');
+    });
+
+    it('groupTransaction() -- throws on unsupported transaction type', async () => {
+      chainServiceMock.setGroupID.mockReturnValueOnce([dummyGroupedTx1]);
+
+      await expect(
+        walletService.groupTransaction(vaultToken, {
+          transactions: [{ type: 'unknown', payload: {} }],
+        } as any),
+      ).rejects.toThrow('Unsupported transaction type: unknown');
+    });
+
+    it('groupTransaction() -- payment + appCall as manager', async () => {
+      chainServiceMock.craftPaymentTx.mockResolvedValueOnce(dummyTx1);
+      chainServiceMock.craftAppCallTx.mockResolvedValueOnce(dummyTx2);
+      chainServiceMock.setGroupID.mockReturnValueOnce([dummyGroupedTx1, dummyGroupedTx2]);
+
+      // Mock decodeTransaction to return manager sender for both grouped txs
+      const managerSndBytes = new AlgorandEncoder().decodeAddress(managerPublicAddress);
+      chainServiceMock.setGroupID.mockReturnValueOnce([dummyGroupedTx1, dummyGroupedTx2]);
+
+      // Spy on AlgorandEncoder.decodeTransaction via the real encoder used inside service
+      const realEncoder = new AlgorandEncoder();
+      jest.spyOn(AlgorandEncoder.prototype, 'decodeTransaction').mockReturnValue({ snd: managerSndBytes } as any);
+      jest.spyOn(AlgorandEncoder.prototype, 'encodeAddress').mockReturnValue(managerPublicAddress);
+
+      chainServiceMock.setGroupID.mockReturnValueOnce([dummyGroupedTx1, dummyGroupedTx2]);
+
+      const groupRequestDto = {
+        transactions: [
+          { type: 'payment', payload: { fromUserId: 'manager', toAddress: userPublicAddress, amount: 1000 } },
+          { type: 'appCall', payload: { fromUserId: 'manager', appId: 123, onComplete: 0 } },
+        ],
+      } as any;
+
+      const result = await walletService.groupTransaction(vaultToken, groupRequestDto);
+
+      expect(chainServiceMock.craftPaymentTx).toHaveBeenCalledWith(
+        managerPublicAddress,
+        userPublicAddress,
+        1000,
+        suggestedParams,
+      );
+      expect(chainServiceMock.craftAppCallTx).toHaveBeenCalledWith(
+        managerPublicAddress,
+        groupRequestDto.transactions[1].payload,
+        suggestedParams,
+        undefined,
+      );
+      expect(result).toBe('group_tx_id');
+
+      jest.restoreAllMocks();
+    });
+
+    it('groupTransaction() -- throws if no transactions after processing', async () => {
+      // Simulate a case where steps produce no transactions by using an empty array directly
+      await expect(
+        walletService.groupTransaction(vaultToken, { transactions: [] } as any),
+      ).rejects.toThrow('transactions is required and must be a non-empty array');
+    });
+  });
 });

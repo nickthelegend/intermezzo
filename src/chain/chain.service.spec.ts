@@ -95,7 +95,7 @@ describe('ChainService', () => {
       });
 
       // Use a valid dummy Algorand address for all address options.
-      const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
+      const dummyAddress1 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
       const dummyAddress3 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const dummyAddress4 = '6L7ABTLU2BZOZPTNO7FT3F35622CLGBCMMQGLOFUNDTSEZHIL62IARTTR4';
@@ -152,7 +152,7 @@ describe('ChainService', () => {
       });
 
       // Use a valid dummy Algorand address for all address options.
-      const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
+      const dummyAddress1 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
 
       const result = await chainService.craftPaymentTx(dummyAddress1, dummyAddress2, 2);
@@ -183,7 +183,7 @@ describe('ChainService', () => {
       });
 
       // Use a valid dummy Algorand address for all address options.
-      const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
+      const dummyAddress1 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
       const lease = 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD';
       const leaseB64 = Buffer.from(lease).toString('base64');
@@ -218,7 +218,7 @@ describe('ChainService', () => {
       });
 
       // Use a valid dummy Algorand address for all address options.
-      const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
+      const dummyAddress1 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
 
       const result = await chainService.craftAssetTransferTx(dummyAddress1, dummyAddress2, 1234n, 0);
@@ -248,7 +248,7 @@ describe('ChainService', () => {
         status: 200,
       });
       // Use a valid dummy Algorand address for all address options.
-      const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
+      const dummyAddress1 = 'IXQNL3EO457FGY2IWRCNP6ZZW45KCTFBEAYZN337ZJ4NB4VZ5OG62WX2ZE';
       const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
       const dummyAddress3 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const clawbackAddress = dummyAddress1;
@@ -294,7 +294,7 @@ describe('ChainService', () => {
         status: 200,
       });
       // Use a valid dummy Algorand address for all address options.
-      const dummyAddress1 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ';
+      const dummyAddress1 = 'IXQNL3EO457FGY2IWRCNP6ZZW45KCTFBEAYZN337ZJ4NB4VZ5OG62WX2ZE';
       const dummyAddress2 = 'MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA';
       const dummyAddress3 = 'DMYOIEE6HAIQF5QUF4XGNBL4GUZOZF6RFQCCB2NXP35AKK2674HBILQQLA';
       const clawbackAddress = dummyAddress1;
