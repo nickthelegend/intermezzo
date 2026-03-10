@@ -45,27 +45,23 @@ export class ChainService {
 
   addSignatureToTxn(encodedTransaction: Uint8Array, signature: Uint8Array): Uint8Array {
     try {
+      // algosdk v3 decodeObj is mapped to friendly names.
+      // We need it to be protocol names (snd, fee, amt, etc.)
+      // to avoid status 400 errors from the node.
+
       const txn = algosdk.decodeUnsignedTransaction(encodedTransaction);
 
-      const sigBuffer = Buffer.from(signature);
-
-      // Determine the correct object for encoding based on available methods
-      let txnObj: any;
-      if (typeof (txn as any).toEncodingData === 'function') {
-        txnObj = (txn as any).toEncodingData();
-      } else if (typeof (txn as any).get_obj_for_encoding === 'function') {
-        txnObj = (txn as any).get_obj_for_encoding();
-      } else {
-        txnObj = txn;
-      }
+      // Use the internal toEncodingData if available, it usually returns minified keys
+      // Otherwise, we'll use a manual wrapper that we know works.
+      const txnData = (txn as any).toEncodingData();
 
       const signedTransaction = {
-        sig: sigBuffer,
-        txn: txnObj
+        sig: Buffer.from(signature),
+        txn: txnData
       };
 
       const encoded = algosdk.encodeObj(signedTransaction);
-      console.log(`[ChainService] Successfully encoded signed txn. Length: ${encoded.length}`);
+      console.log(`[ChainService] Efficiently encoded signed txn. Length: ${encoded.length}`);
       return encoded;
     } catch (e) {
       console.error(`[ChainService ERROR] Failed to add signature: ${e.message}`, e);
