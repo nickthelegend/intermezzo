@@ -49,22 +49,25 @@ export class ChainService {
 
       let txnBytes = Buffer.from(encodedTransaction);
       // IMPORTANT: Strip "TX" prefix if it exists (0x54 0x58). 
-      // Algosdk's decodeUnsignedTransaction fails if these extra 2 bytes are present.
+      // This ensures we have pure MsgPack for the final signed transaction.
       if (txnBytes.length > 2 && txnBytes[0] === 0x54 && txnBytes[1] === 0x58) {
-        console.log('[ChainService] Stripping "TX" prefix before decoding');
+        console.log('[ChainService] Stripping "TX" prefix before wrapping');
         txnBytes = txnBytes.slice(2);
       }
 
-      // Use algosdk's robust decoding/encoding to ensure perfect MsgPack format
-      const txn = algosdk.decodeUnsignedTransaction(new Uint8Array(txnBytes));
-      const signedObj = {
-        sig: Buffer.from(signature),
-        txn: (txn as any).get_obj_for_encoding(),
-      };
+      // Manual msgpack wrapping for a SignedTransaction map: { "sig": ..., "txn": ... }
+      // This is the most robust way and ensures the original 'txn' bytes are preserved bit-for-bit,
+      // avoiding any 'friendly name' translation issues that cause node rejection (status 400).
 
-      const combined = algosdk.encodeObj(signedObj);
-      console.log(`[ChainService] Wrapped via algosdk. Final length: ${combined.length}`);
-      return combined;
+      const sigKey = Buffer.from([0xa3, 115, 105, 103]); // String "sig"
+      const sigVal = Buffer.concat([Buffer.from([0xc4, 0x40]), Buffer.from(signature)]); // Bin 64 + signature
+      const txnKey = Buffer.from([0xa3, 116, 120, 110]); // String "txn"
+      const mapHeader = Buffer.from([0x82]); // FixMap with 2 elements (sig & txn)
+
+      const combined = Buffer.concat([mapHeader, sigKey, sigVal, txnKey, txnBytes]);
+
+      console.log(`[ChainService] Manually wrapped signed txn. Final length: ${combined.length}`);
+      return new Uint8Array(combined);
     } catch (e) {
       console.error(`[ChainService ERROR] Signature wrap failed: ${e.message}`, e);
       throw e;
