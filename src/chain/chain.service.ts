@@ -45,27 +45,22 @@ export class ChainService {
 
   addSignatureToTxn(encodedTransaction: Uint8Array, signature: Uint8Array): Uint8Array {
     try {
-      // algosdk v3 decodeObj is mapped to friendly names.
-      // We need it to be protocol names (snd, fee, amt, etc.)
-      // to avoid status 400 errors from the node.
+      // Manual msgpack wrapping for a SignedTransaction map: { "sig": ..., "txn": ... }
+      // This is the most robust way and ensures the original 'txn' bytes are preserved bit-for-bit,
+      // avoiding any 'friendly name' translation issues that cause node rejection (status 400).
 
-      const txn = algosdk.decodeUnsignedTransaction(encodedTransaction);
+      const sigKey = Buffer.from([0xa3, 115, 105, 103]); // String "sig"
+      const sigVal = Buffer.concat([Buffer.from([0xc4, 0x40]), Buffer.from(signature)]); // Bin 64 + signature
+      const txnKey = Buffer.from([0xa3, 116, 120, 110]); // String "txn"
+      const mapHeader = Buffer.from([0x82]); // FixMap with 2 elements (sig & txn)
 
-      // Use the internal toEncodingData if available, it usually returns minified keys
-      // Otherwise, we'll use a manual wrapper that we know works.
-      const txnData = (txn as any).toEncodingData();
+      const combined = Buffer.concat([mapHeader, sigKey, sigVal, txnKey, Buffer.from(encodedTransaction)]);
 
-      const signedTransaction = {
-        sig: Buffer.from(signature),
-        txn: txnData
-      };
-
-      const encoded = algosdk.encodeObj(signedTransaction);
-      console.log(`[ChainService] Efficiently encoded signed txn. Length: ${encoded.length}`);
-      return encoded;
+      console.log(`[ChainService] Manually wrapped signed txn. Final length: ${combined.length}`);
+      return new Uint8Array(combined);
     } catch (e) {
-      console.error(`[ChainService ERROR] Failed to add signature: ${e.message}`, e);
-      Logger.error(`Failed to add signature to transaction: ${e.message}`, e.stack);
+      console.error(`[ChainService ERROR] Manual wrap failed: ${e.message}`, e);
+      Logger.error(`Failed to manually wrap signature: ${e.message}`, e.stack);
       throw e;
     }
   }
