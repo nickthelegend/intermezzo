@@ -46,17 +46,15 @@ export class ChainService {
   addSignatureToTxn(encodedTransaction: Uint8Array, signature: Uint8Array): Uint8Array {
     try {
       const txn = algosdk.decodeUnsignedTransaction(encodedTransaction);
-      console.log(`[ChainService] Decoded txn type: ${txn.constructor.name}`);
-      console.log(`[ChainService] Available methods: ${Object.getOwnPropertyNames(Object.getPrototypeOf(txn)).filter(m => typeof (txn as any)[m] === 'function').join(', ')}`);
 
       const sigBuffer = Buffer.from(signature);
 
-      // Try get_obj_for_encoding, getEncoding, or just the object itself
+      // Determine the correct object for encoding based on available methods
       let txnObj: any;
-      if (typeof (txn as any).get_obj_for_encoding === 'function') {
+      if (typeof (txn as any).toEncodingData === 'function') {
+        txnObj = (txn as any).toEncodingData();
+      } else if (typeof (txn as any).get_obj_for_encoding === 'function') {
         txnObj = (txn as any).get_obj_for_encoding();
-      } else if (typeof (txn as any).getEncoding === 'function') {
-        txnObj = (txn as any).getEncoding();
       } else {
         txnObj = txn;
       }
@@ -66,8 +64,11 @@ export class ChainService {
         txn: txnObj
       };
 
-      return algosdk.encodeObj(signedTransaction);
+      const encoded = algosdk.encodeObj(signedTransaction);
+      console.log(`[ChainService] Successfully encoded signed txn. Length: ${encoded.length}`);
+      return encoded;
     } catch (e) {
+      console.error(`[ChainService ERROR] Failed to add signature: ${e.message}`, e);
       Logger.error(`Failed to add signature to transaction: ${e.message}`, e.stack);
       throw e;
     }
