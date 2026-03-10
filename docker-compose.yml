@@ -29,5 +29,6 @@ services:
     volumes:
       - .:/opt/app/
       - /opt/app/node_modules
+      - /opt/app/dist
     ports:
       - "3000:3000"
