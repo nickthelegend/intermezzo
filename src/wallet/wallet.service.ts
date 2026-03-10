@@ -556,7 +556,8 @@ export class WalletService {
     const signedTxs: Uint8Array[] = [];
     for (const tx of groupedTxns) {
       const sender = encoder.encodeAddress(Buffer.from(encoder.decodeTransaction(tx).snd));
-      if (managerPublicAddress && sender === managerPublicAddress) {
+      const managerAddr = await getManagerPublicAddress();
+      if (sender === managerAddr) {
         signedTxs.push(await this.signTxAsManager(tx, vault_token));
       } else if (addressToUserId[sender]) {
         signedTxs.push(await this.signTxAsUser(addressToUserId[sender], tx, vault_token));
