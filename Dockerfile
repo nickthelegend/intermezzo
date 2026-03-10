@@ -14,8 +14,9 @@ RUN chown -R node:node /opt/app/
 # Change to app directory
 WORKDIR /opt/app
 
-# Enable debugging port
+# Enable debugging and app ports
 EXPOSE 9200
+EXPOSE 3000
 
 # Dont run as root
 USER node

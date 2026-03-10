@@ -26,12 +26,14 @@ import { AppCallRequestDto } from '../wallet/app-call-request.dto';
 import { base64ToBytes, encodeString, encodeUint64 } from './encoding';
 import { sha512_256 } from 'js-sha512';
 
+import * as algosdk from 'algosdk';
+
 @Injectable()
 export class ChainService {
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
-  ) {}
+  ) { }
 
   private getCrafter(): AlgorandTransactionCrafter {
     return new AlgorandTransactionCrafter(this.configService.get('GENESIS_ID'), this.configService.get('GENESIS_HASH'));
@@ -42,8 +44,18 @@ export class ChainService {
   }
 
   addSignatureToTxn(encodedTransaction: Uint8Array, signature: Uint8Array): Uint8Array {
-    const crafter = this.getCrafter();
-    return crafter.addSignature(encodedTransaction, signature);
+    try {
+      const txn = algosdk.decodeUnsignedTransaction(encodedTransaction);
+      // Construct a SignedTransaction object-like structure that algosdk understands
+      const signedTransaction = {
+        sig: Buffer.from(signature),
+        txn: (txn as any).get_obj_for_encoding()
+      };
+      return algosdk.encodeObj(signedTransaction);
+    } catch (e) {
+      Logger.error(`Failed to add signature to transaction: ${e.message}`);
+      throw e;
+    }
   }
 
   /**
@@ -101,9 +113,9 @@ export class ChainService {
 
     const transactionBuilder = crafter
       .createAsset(creatorAddress, params)
-      .addFee(suggested_params.minFee)
-      .addFirstValidRound(suggested_params.lastRound)
-      .addLastValidRound(suggested_params.lastRound + 1000n);
+      .addFee(BigInt(suggested_params.minFee))
+      .addFirstValidRound(BigInt(suggested_params.lastRound))
+      .addLastValidRound(BigInt(suggested_params.lastRound) + 1000n);
 
     return transactionBuilder.get().encode();
   }
@@ -119,10 +131,10 @@ export class ChainService {
     const crafter = this.getCrafter();
 
     const transactionBuilder = crafter
-      .pay(amount, from, to)
-      .addFee(suggested_params.minFee)
-      .addFirstValidRound(suggested_params.lastRound)
-      .addLastValidRound(suggested_params.lastRound + 1000n);
+      .pay(BigInt(amount), from, to)
+      .addFee(BigInt(suggested_params.minFee))
+      .addFirstValidRound(BigInt(suggested_params.lastRound))
+      .addLastValidRound(BigInt(suggested_params.lastRound) + 1000n);
 
     return transactionBuilder.get().encode();
   }
@@ -142,12 +154,12 @@ export class ChainService {
       this.configService.get('GENESIS_ID'),
       this.configService.get('GENESIS_HASH'),
     );
-    builder.addAssetId(asset_id);
+    builder.addAssetId(BigInt(asset_id));
     builder.addSender(from);
     builder.addAssetReceiver(to);
-    builder.addFee(suggested_params.minFee);
-    builder.addFirstValidRound(suggested_params.lastRound);
-    builder.addLastValidRound(suggested_params.lastRound + 1000n);
+    builder.addFee(BigInt(suggested_params.minFee));
+    builder.addFirstValidRound(BigInt(suggested_params.lastRound));
+    builder.addLastValidRound(BigInt(suggested_params.lastRound) + 1000n);
     if (note) {
       builder.addNote(note);
     }
@@ -183,13 +195,13 @@ export class ChainService {
       this.configService.get('GENESIS_ID'),
       this.configService.get('GENESIS_HASH'),
     );
-    builder.addAssetId(asset_id);
+    builder.addAssetId(BigInt(asset_id));
     builder.addSender(clawbackAddress);
     builder.addAssetSender(from);
     builder.addAssetReceiver(to);
-    builder.addFee(suggested_params.minFee);
-    builder.addFirstValidRound(suggested_params.lastRound);
-    builder.addLastValidRound(suggested_params.lastRound + 1000n);
+    builder.addFee(BigInt(suggested_params.minFee));
+    builder.addFirstValidRound(BigInt(suggested_params.lastRound));
+    builder.addLastValidRound(BigInt(suggested_params.lastRound) + 1000n);
 
     if (note) {
       builder.addNote(note);
@@ -221,9 +233,9 @@ export class ChainService {
       this.configService.get('GENESIS_HASH'),
     );
     builder.addSender(managerPublicAddress);
-    builder.addFee(fee ?? suggested_params.minFee);
-    builder.addFirstValidRound(suggested_params.lastRound);
-    builder.addLastValidRound(suggested_params.lastRound + 1000n);
+    builder.addFee(BigInt(fee ?? suggested_params.minFee));
+    builder.addFirstValidRound(BigInt(suggested_params.lastRound));
+    builder.addLastValidRound(BigInt(suggested_params.lastRound) + 1000n);
 
     if (appCallRequestDto.note) builder.addNote(appCallRequestDto.note);
     if (appCallRequestDto.lease) builder.addLease(this.parseLease(appCallRequestDto.lease));

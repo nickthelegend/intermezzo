@@ -22,7 +22,7 @@ services:
       dockerfile: ./Dockerfile
     image: pawn-dev
     working_dir: /opt/app
-    command: sh -c 'yarn && yarn start:dev;'
+    command: yarn start:dev
     container_name: pawn
     env_file:
       - .env

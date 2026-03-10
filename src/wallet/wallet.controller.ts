@@ -20,11 +20,12 @@ import { AccountAssetsDto } from './account-assets.dto';
 import { AssetClawbackRequestDto } from './asset-clawback-request.dto';
 import { AlgoTransferRequestDto } from './algo-transfer-request.dto';
 import { AlgoTransferResponseDto } from './algo-transfer-response.dto';
-import { AssetHolding } from 'src/chain/algo-node-responses';
+import { AssetHolding } from '../chain/algo-node-responses';
 import { AppCallRequestDto } from './app-call-request.dto';
 import { AppCallResponseDto } from './app-call-response.dto';
 import { GroupRequestDto } from './group-request.dto';
 import { GroupResponseDto } from './group-response.dto';
+import * as algosdk from 'algosdk';
 
 @ApiBearerAuth()
 @Controller()
@@ -32,7 +33,7 @@ import { GroupResponseDto } from './group-response.dto';
   description: 'Unauthorized',
 })
 export class Wallet {
-  constructor(private readonly walletService: WalletService) {}
+  constructor(private readonly walletService: WalletService) { }
 
   // Endpoint to get user details
   @Get('wallet/users/:user_id/')
@@ -45,7 +46,6 @@ export class Wallet {
     type: UserInfoResponseDto,
   })
   async userDetail(@Request() request: any, @Param('user_id') user_id: string): Promise<UserInfoResponseDto> {
-    // return or 404 if not found
     return await this.walletService.getUserInfo(user_id, request.vault_token);
   }
 
@@ -92,47 +92,25 @@ export class Wallet {
     return accountAssetsDto;
   }
 
-  // Endpoint to create a new user
   @Post('wallet/user/')
   @ApiOperation({
     summary: 'Create User',
-    description:
-      'Create a new **User** in the wallet. The `user_id` is the unique identifier for the user.' +
-      'The response includes the **Algorand** `public_address` of the user.',
-  })
-  @ApiCreatedResponse({
-    description: 'A new user has been created.',
-    type: UserInfoResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Bad Request',
   })
   async userCreate(@Request() request: any, @Body() newUserParams: CreateUserDto): Promise<UserInfoResponseDto> {
     return this.walletService.userCreate(newUserParams.user_id, request.vault_token);
   }
 
-  // Endpont to get all users keys
   @Get('wallet/users/')
   @ApiOperation({
     summary: 'Get Users',
-    description: 'Fetch the list of **Users** in the wallet.',
   })
   async userList(@Request() request: any): Promise<UserInfoResponseDto[]> {
     return this.walletService.getKeys(request.vault_token);
   }
 
-  // Asset creation for manager
   @Post('wallet/transactions/create-asset/')
   @ApiOperation({
     summary: 'Create Asset',
-    description: 'Create a new **Algorand** `Asset`.',
-  })
-  @ApiCreatedResponse({
-    description: 'The asset has been successfully created.',
-    type: CreateAssetResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Bad Request',
   })
   async createAsset(@Request() request: any, @Body() createAssetDto: CreateAssetDto): Promise<CreateAssetResponseDto> {
     return {
@@ -140,21 +118,9 @@ export class Wallet {
     };
   }
 
-  // Asset transfer manager to user
   @Post('wallet/transactions/transfer-asset/')
   @ApiOperation({
     summary: 'Transfer Asset',
-    description: 'Send an **Algorand** `Asset` from the **Manager** to a **User**.',
-  })
-  @ApiCreatedResponse({
-    description: 'The asset has been successfully transferred.',
-    type: AssetTransferResponseDto,
-  })
-  @ApiNotFoundResponse({
-    description: 'Not Found',
-  })
-  @ApiBadRequestResponse({
-    description: 'Bad Request',
   })
   async assetTransferTx(
     @Request() request: any,
@@ -172,22 +138,9 @@ export class Wallet {
     } as AssetTransferResponseDto;
   }
 
-  // Algo Transfer
   @Post('wallet/transactions/transfer-algo/')
   @ApiOperation({
     summary: 'Transfer Algo',
-    description:
-      'Send **Algorand** `Algos` to another account. The sender can be either the **Manager** or a **User**.',
-  })
-  @ApiCreatedResponse({
-    description: 'The Algos have been successfully transferred.',
-    type: AlgoTransferResponseDto,
-  })
-  @ApiNotFoundResponse({
-    description: 'Not Found',
-  })
-  @ApiBadRequestResponse({
-    description: 'Bad Request',
   })
   async algoTransferTx(
     @Request() request: any,
@@ -203,22 +156,9 @@ export class Wallet {
     } as AlgoTransferResponseDto;
   }
 
-  // Asset clawback by manager
   @Post('wallet/transactions/clawback-asset/')
   @ApiOperation({
     summary: 'Clawback Asset',
-    description:
-      'Clawback an **Algorand** `Asset` from a **User** to the **Manager**. The `Asset` must have been created with the manager as the clawback address.',
-  })
-  @ApiCreatedResponse({
-    description: 'The asset has been successfully clawed back.',
-    type: AssetTransferResponseDto,
-  })
-  @ApiNotFoundResponse({
-    description: 'Not Found',
-  })
-  @ApiBadRequestResponse({
-    description: 'Bad Request',
   })
   async assetClawbackTx(
     @Request() request: any,
@@ -236,21 +176,9 @@ export class Wallet {
     } as AssetTransferResponseDto;
   }
 
-  // App Call
   @Post('wallet/transactions/app-call/')
   @ApiOperation({
     summary: 'App Call',
-    description: 'Application call',
-  })
-  @ApiCreatedResponse({
-    description: 'The app call has been successfully completed.',
-    type: AppCallResponseDto,
-  })
-  @ApiNotFoundResponse({
-    description: 'Not Found',
-  })
-  @ApiBadRequestResponse({
-    description: 'Bad Request',
   })
   async appCallTx(@Request() request: any, @Body() appCallRequestDto: AppCallRequestDto): Promise<AppCallResponseDto> {
     return {
@@ -258,25 +186,77 @@ export class Wallet {
     } as AppCallResponseDto;
   }
 
-  // Group Transaction
   @Post('wallet/transactions/group-transaction/')
   @ApiOperation({
     summary: 'Group Transaction',
-    description: 'Group Transaction',
-  })
-  @ApiCreatedResponse({
-    description: 'The group transaction has been successfully completed.',
-    type: GroupResponseDto,
-  })
-  @ApiNotFoundResponse({
-    description: 'Not Found',
-  })
-  @ApiBadRequestResponse({
-    description: 'Bad Request',
   })
   async groupTx(@Request() request: any, @Body() groupRequestDto: GroupRequestDto) {
     return {
       group_id: await this.walletService.groupTransaction(request.vault_token, groupRequestDto),
     };
+  }
+
+  // --- NEW ENDPOINTS FOR KYUSO FRONTEND ---
+
+  @Post('wallet')
+  @ApiOperation({ summary: 'Kyuso: Initialize or Get Wallet' })
+  async kyusoWalletInit(@Request() request: any) {
+    const userId = request.user_id || 'default_user';
+    try {
+      return await this.walletService.getUserInfo(userId, request.vault_token);
+    } catch (e) {
+      return await this.walletService.userCreate(userId, request.vault_token);
+    }
+  }
+
+  @Get('wallet/details')
+  @ApiOperation({ summary: 'Kyuso: Get Wallet Details' })
+  async kyusoWalletDetails(@Request() request: any) {
+    const userId = request.user_id || 'default_user';
+    return await this.walletService.getUserInfo(userId, request.vault_token);
+  }
+
+  @Get('wallet/assets')
+  @ApiOperation({ summary: 'Kyuso: Get Wallet Assets' })
+  async kyusoWalletAssets(@Request() request: any) {
+    const userId = request.user_id || 'default_user';
+    const accountAssets: AssetHolding[] = await this.walletService.getAssetHoldings(userId, request.vault_token);
+    const userPublicAddress: string = (await this.walletService.getUserInfo(userId, request.vault_token))
+      .public_address;
+    return {
+      address: userPublicAddress,
+      assets: accountAssets,
+    };
+  }
+
+  @Post('wallet/sign')
+  @ApiOperation({ summary: 'Kyuso: Sign Transactions' })
+  async kyusoSign(@Request() request: any, @Body() body: { transactions: string[], isMsgpack: boolean }) {
+    const userId = request.user_id || 'default_user';
+    const signedTxns = [];
+
+    for (const txnBase64 of body.transactions) {
+      try {
+        const txnBytes = Buffer.from(txnBase64, 'base64');
+        const txn = algosdk.decodeUnsignedTransaction(new Uint8Array(txnBytes));
+
+        // txn.bytesToSign() handles "TX" prefix correctly
+        const signMe = txn.bytesToSign();
+        console.log(`[Sign] Signing ${signMe.length} bytes for user ${userId}`);
+
+        const vaultRawSig: Buffer = await this.walletService.vaultService.signAsUser(userId, signMe, request.vault_token);
+        const signatureStr = vaultRawSig.toString().split(':')[2];
+        const signature = new Uint8Array(Buffer.from(signatureStr, 'base64'));
+
+        // Combine signature with ORIGINAL transaction bytes
+        const combined = this.walletService.chainService.addSignatureToTxn(new Uint8Array(txnBytes), signature);
+        signedTxns.push(Buffer.from(combined).toString('base64'));
+      } catch (e) {
+        console.error(`[Sign] Error: ${e.message}`, e);
+        throw e;
+      }
+    }
+
+    return { signed_transactions: signedTxns };
   }
 }

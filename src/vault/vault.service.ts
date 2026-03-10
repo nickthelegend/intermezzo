@@ -13,7 +13,7 @@ export class VaultService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    *
@@ -150,18 +150,23 @@ export class VaultService {
    */
   async getTokenWithRole(roleId: string, secretId: string): Promise<string> {
     const baseUrl: string = this.configService.get<string>('VAULT_BASE_URL');
+    const url = `${baseUrl}/v1/auth/approle/login`;
+
+    Logger.log(`Attempting Vault login at: ${url} with RoleID: ${roleId}`);
 
     let result: AxiosResponse;
     try {
-      result = await this.httpService.axiosRef.post(`${baseUrl}/v1/auth/approle/login`, {
+      result = await this.httpService.axiosRef.post(url, {
         role_id: roleId,
         secret_id: secretId,
       });
+      return result.data.auth.client_token;
     } catch (error) {
-      throw new HttpErrorByCode[error.response.status]('VaultException');
+      const status = error.response?.status;
+      const data = error.response?.data;
+      Logger.error(`Vault login failed. Status: ${status}, Data: ${JSON.stringify(data)}, Message: ${error.message}`);
+      throw new HttpErrorByCode[status || 500]('VaultException');
     }
-    const token: string = result.data.auth.client_token;
-    return token;
   }
 
   async checkToken(token: string): Promise<boolean> {

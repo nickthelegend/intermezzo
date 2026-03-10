@@ -14,6 +14,7 @@ export class ExceptionsFilter implements ExceptionFilter {
       status = exception.getStatus();
       message = exception.getResponse();
     } else {
+      console.error('Unhandled Exception:', exception);
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = { message: 'Internal server error' };
     }
