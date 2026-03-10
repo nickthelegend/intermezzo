@@ -476,14 +476,28 @@ export class WalletService {
           break;
         }
         case 'assetConfig': {
-          const tx = await this.chainService.craftAssetCreateTx(await getManagerPublicAddress(), value);
+          let fromAddress: string;
+          if (value.fromUserId === 'manager') {
+            fromAddress = await getManagerPublicAddress();
+          } else {
+            fromAddress = (await this.getUserInfo(value.fromUserId, vault_token)).public_address;
+            addressToUserId[fromAddress] = value.fromUserId;
+          }
+          const tx = await this.chainService.craftAssetCreateTx(fromAddress, value);
           unSignedTxs.push(tx);
           break;
         }
         case 'assetTransfer': {
+          let fromAddress: string;
+          if (value.fromUserId === 'manager') {
+            fromAddress = await getManagerPublicAddress();
+          } else {
+            fromAddress = (await this.getUserInfo(value.fromUserId, vault_token)).public_address;
+            addressToUserId[fromAddress] = value.fromUserId;
+          }
           const userPublicAddress: string = (await this.getUserInfo(value.userId, vault_token)).public_address;
           const tx = await this.chainService.craftAssetTransferTx(
-            await getManagerPublicAddress(),
+            fromAddress,
             userPublicAddress,
             value.assetId,
             value.amount,
