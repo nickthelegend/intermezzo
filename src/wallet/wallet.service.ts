@@ -452,6 +452,7 @@ export class WalletService {
 
     const unSignedTxs: Uint8Array[] = [];
     const addressToUserId: Record<string, string> = {};
+    const defaultUserId = (groupRequestDto as any).user_id;
 
     for (let i = 0; i < groupRequestDto.transactions.length; i++) {
       const step = groupRequestDto.transactions[i];
@@ -461,14 +462,17 @@ export class WalletService {
         throw new Error(`Invalid transaction step at index ${i}: Missing type or payload. Received: ${JSON.stringify(step)}`);
       }
 
+      const currentFromUserId = (value as any).fromUserId || defaultUserId;
+
       switch (key) {
         case 'appCall': {
           let fromAddress: string;
-          if (value.fromUserId === 'manager') {
+          if (currentFromUserId === 'manager') {
             fromAddress = await getManagerPublicAddress();
           } else {
-            fromAddress = (await this.getUserInfo(value.fromUserId, vault_token)).public_address;
-            addressToUserId[fromAddress] = value.fromUserId;
+            if (!currentFromUserId) throw new Error(`Missing fromUserId for step ${i}`);
+            fromAddress = (await this.getUserInfo(currentFromUserId, vault_token)).public_address;
+            addressToUserId[fromAddress] = currentFromUserId;
           }
 
           const tx = await this.chainService.craftAppCallTx(fromAddress, value, suggested_params, value.fee);
@@ -477,11 +481,12 @@ export class WalletService {
         }
         case 'assetConfig': {
           let fromAddress: string;
-          if (value.fromUserId === 'manager') {
+          if (currentFromUserId === 'manager') {
             fromAddress = await getManagerPublicAddress();
           } else {
-            fromAddress = (await this.getUserInfo(value.fromUserId, vault_token)).public_address;
-            addressToUserId[fromAddress] = value.fromUserId;
+            if (!currentFromUserId) throw new Error(`Missing fromUserId for step ${i}`);
+            fromAddress = (await this.getUserInfo(currentFromUserId, vault_token)).public_address;
+            addressToUserId[fromAddress] = currentFromUserId;
           }
           const tx = await this.chainService.craftAssetCreateTx(fromAddress, value);
           unSignedTxs.push(tx);
@@ -489,11 +494,12 @@ export class WalletService {
         }
         case 'assetTransfer': {
           let fromAddress: string;
-          if (value.fromUserId === 'manager') {
+          if (currentFromUserId === 'manager') {
             fromAddress = await getManagerPublicAddress();
           } else {
-            fromAddress = (await this.getUserInfo(value.fromUserId, vault_token)).public_address;
-            addressToUserId[fromAddress] = value.fromUserId;
+            if (!currentFromUserId) throw new Error(`Missing fromUserId for step ${i}`);
+            fromAddress = (await this.getUserInfo(currentFromUserId, vault_token)).public_address;
+            addressToUserId[fromAddress] = currentFromUserId;
           }
           const userPublicAddress: string = (await this.getUserInfo(value.userId, vault_token)).public_address;
           const tx = await this.chainService.craftAssetTransferTx(
@@ -510,11 +516,12 @@ export class WalletService {
         }
         case 'payment': {
           let fromAddress: string;
-          if (value.fromUserId === 'manager') {
+          if (currentFromUserId === 'manager') {
             fromAddress = await getManagerPublicAddress();
           } else {
-            fromAddress = (await this.getUserInfo(value.fromUserId, vault_token)).public_address;
-            addressToUserId[fromAddress] = value.fromUserId;
+            if (!currentFromUserId) throw new Error(`Missing fromUserId for step ${i}`);
+            fromAddress = (await this.getUserInfo(currentFromUserId, vault_token)).public_address;
+            addressToUserId[fromAddress] = currentFromUserId;
           }
 
           const tx = await this.chainService.craftPaymentTx(
