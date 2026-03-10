@@ -49,14 +49,24 @@ export class ChainService {
       // This is the most robust way and ensures the original 'txn' bytes are preserved bit-for-bit,
       // avoiding any 'friendly name' translation issues that cause node rejection (status 400).
 
+      let txnBytes = Buffer.from(encodedTransaction);
+      // DEFENSIVE: Strip "TX" prefix if it exists (0x54 0x58)
+      if (txnBytes.length > 2 && txnBytes[0] === 0x54 && txnBytes[1] === 0x58) {
+        console.log('[ChainService] Stripping "TX" prefix from encoded transaction');
+        txnBytes = txnBytes.slice(2);
+      }
+
+      console.log(`[ChainService] First 10 bytes of txn: ${txnBytes.slice(0, 10).toString('hex')}`);
+
       const sigKey = Buffer.from([0xa3, 115, 105, 103]); // String "sig"
       const sigVal = Buffer.concat([Buffer.from([0xc4, 0x40]), Buffer.from(signature)]); // Bin 64 + signature
       const txnKey = Buffer.from([0xa3, 116, 120, 110]); // String "txn"
       const mapHeader = Buffer.from([0x82]); // FixMap with 2 elements (sig & txn)
 
-      const combined = Buffer.concat([mapHeader, sigKey, sigVal, txnKey, Buffer.from(encodedTransaction)]);
+      const combined = Buffer.concat([mapHeader, sigKey, sigVal, txnKey, txnBytes]);
 
       console.log(`[ChainService] Manually wrapped signed txn. Final length: ${combined.length}`);
+      console.log(`[ChainService] First 20 bytes of combined: ${combined.slice(0, 20).toString('hex')}`);
       return new Uint8Array(combined);
     } catch (e) {
       console.error(`[ChainService ERROR] Manual wrap failed: ${e.message}`, e);
