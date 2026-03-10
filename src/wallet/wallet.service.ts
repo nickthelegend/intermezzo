@@ -108,8 +108,10 @@ export class WalletService {
     vault_token: string,
   ): Promise<Uint8Array<ArrayBufferLike>> {
     const vaultRawSig: Buffer = await this.vaultService.signAsUser(user_id, tx, vault_token);
+    console.log(`[signTxAsUser] Raw sig from vault: ${vaultRawSig.toString()}`);
     // split vault specific prefixes vault:${version}:signature
     const signature = vaultRawSig.toString().split(':')[2];
+    console.log(`[signTxAsUser] Extracted signature (base64 part): ${signature}`);
     // vault default base64 decode
     const decoded: Buffer = Buffer.from(signature, 'base64');
     // return as Uint8Array
@@ -128,8 +130,10 @@ export class WalletService {
    */
   async signTxAsManager(tx: Uint8Array<ArrayBufferLike>, vault_token: string): Promise<Uint8Array<ArrayBufferLike>> {
     const vaultRawSig: Buffer = await this.vaultService.signAsManager(tx, vault_token);
+    console.log(`[signTxAsManager] Raw sig from vault: ${vaultRawSig.toString()}`);
     // split vault specific prefixes vault:${version}:signature
     const signature = vaultRawSig.toString().split(':')[2];
+    console.log(`[signTxAsManager] Extracted signature (base64 part): ${signature}`);
     // vault default base64 decode
     const decoded: Buffer = Buffer.from(signature, 'base64');
     // return as Uint8Array
@@ -429,12 +433,18 @@ export class WalletService {
    * @returns The group transaction ID (the txid of the first transaction in the submitted group).
    */
   async groupTransaction(vault_token: string, groupRequestDto: GroupRequestDto) {
-    const managerPublicKey: Buffer = await this.vaultService.getManagerPublicKey(vault_token);
-    const managerPublicAddress: string = new AlgorandEncoder().encodeAddress(managerPublicKey);
+    let managerPublicAddress: string | null = null;
+    const getManagerPublicAddress = async () => {
+      if (managerPublicAddress) return managerPublicAddress;
+      const managerPublicKey: Buffer = await this.vaultService.getManagerPublicKey(vault_token);
+      managerPublicAddress = new AlgorandEncoder().encodeAddress(managerPublicKey);
+      return managerPublicAddress;
+    };
 
     const suggested_params = await this.chainService.getSuggestedParams();
 
-    Logger.debug(`Group Request DTO: ${groupRequestDto}`);
+    const safePrint = (o: any) => JSON.stringify(o, (k, v) => typeof v === 'bigint' ? v.toString() : v, 2);
+    Logger.debug(`Group Request DTO: ${safePrint(groupRequestDto)}`);
 
     if (!Array.isArray((groupRequestDto as any).transactions) || groupRequestDto.transactions.length === 0) {
       throw new Error('transactions is required and must be a non-empty array');
@@ -443,18 +453,19 @@ export class WalletService {
     const unSignedTxs: Uint8Array[] = [];
     const addressToUserId: Record<string, string> = {};
 
-    for (const step of groupRequestDto.transactions) {
+    for (let i = 0; i < groupRequestDto.transactions.length; i++) {
+      const step = groupRequestDto.transactions[i];
       const key = (step as any).type as string;
       const value = (step as any).payload;
       if (!key || !value) {
-        throw new Error('Invalid transaction step');
+        throw new Error(`Invalid transaction step at index ${i}: Missing type or payload. Received: ${JSON.stringify(step)}`);
       }
 
       switch (key) {
         case 'appCall': {
           let fromAddress: string;
           if (value.fromUserId === 'manager') {
-            fromAddress = managerPublicAddress;
+            fromAddress = await getManagerPublicAddress();
           } else {
             fromAddress = (await this.getUserInfo(value.fromUserId, vault_token)).public_address;
             addressToUserId[fromAddress] = value.fromUserId;
@@ -465,14 +476,14 @@ export class WalletService {
           break;
         }
         case 'assetConfig': {
-          const tx = await this.chainService.craftAssetCreateTx(managerPublicAddress, value);
+          const tx = await this.chainService.craftAssetCreateTx(await getManagerPublicAddress(), value);
           unSignedTxs.push(tx);
           break;
         }
         case 'assetTransfer': {
           const userPublicAddress: string = (await this.getUserInfo(value.userId, vault_token)).public_address;
           const tx = await this.chainService.craftAssetTransferTx(
-            managerPublicAddress,
+            await getManagerPublicAddress(),
             userPublicAddress,
             value.assetId,
             value.amount,
@@ -486,7 +497,7 @@ export class WalletService {
         case 'payment': {
           let fromAddress: string;
           if (value.fromUserId === 'manager') {
-            fromAddress = managerPublicAddress;
+            fromAddress = await getManagerPublicAddress();
           } else {
             fromAddress = (await this.getUserInfo(value.fromUserId, vault_token)).public_address;
             addressToUserId[fromAddress] = value.fromUserId;
@@ -504,9 +515,9 @@ export class WalletService {
         case 'assetClawback': {
           const userPublicAddress: string = (await this.getUserInfo(value.userId, vault_token)).public_address;
           const tx = await this.chainService.craftAssetClawbackTx(
-            managerPublicAddress,
+            await getManagerPublicAddress(),
             userPublicAddress,
-            managerPublicAddress,
+            await getManagerPublicAddress(),
             value.assetId,
             value.amount,
             value.lease,
@@ -531,7 +542,7 @@ export class WalletService {
     const signedTxs: Uint8Array[] = [];
     for (const tx of groupedTxns) {
       const sender = encoder.encodeAddress(Buffer.from(encoder.decodeTransaction(tx).snd));
-      if (sender === managerPublicAddress) {
+      if (managerPublicAddress && sender === managerPublicAddress) {
         signedTxs.push(await this.signTxAsManager(tx, vault_token));
       } else if (addressToUserId[sender]) {
         signedTxs.push(await this.signTxAsUser(addressToUserId[sender], tx, vault_token));
