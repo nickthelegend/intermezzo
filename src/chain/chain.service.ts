@@ -47,9 +47,16 @@ export class ChainService {
     try {
       console.log(`[ChainService] Wrapping signature. Sig length: ${signature.length}, Txn length: ${encodedTransaction.length}`);
 
+      let txnBytes = Buffer.from(encodedTransaction);
+      // IMPORTANT: Strip "TX" prefix if it exists (0x54 0x58). 
+      // Algosdk's decodeUnsignedTransaction fails if these extra 2 bytes are present.
+      if (txnBytes.length > 2 && txnBytes[0] === 0x54 && txnBytes[1] === 0x58) {
+        console.log('[ChainService] Stripping "TX" prefix before decoding');
+        txnBytes = txnBytes.slice(2);
+      }
+
       // Use algosdk's robust decoding/encoding to ensure perfect MsgPack format
-      // This handles the "TX" prefix and field mapping automatically
-      const txn = algosdk.decodeUnsignedTransaction(encodedTransaction);
+      const txn = algosdk.decodeUnsignedTransaction(new Uint8Array(txnBytes));
       const signedObj = {
         sig: Buffer.from(signature),
         txn: (txn as any).get_obj_for_encoding(),
