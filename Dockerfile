@@ -18,8 +18,8 @@ WORKDIR /opt/app
 EXPOSE 9200
 EXPOSE 3000
 
-# Dont run as root
-USER node
+# Run as root to fix permission issues with bind mounts
+USER root
 
 RUN yarn
 RUN yarn build
