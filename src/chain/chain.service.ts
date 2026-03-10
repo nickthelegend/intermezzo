@@ -52,7 +52,7 @@ export class ChainService {
       const txn = algosdk.decodeUnsignedTransaction(encodedTransaction);
       const signedObj = {
         sig: Buffer.from(signature),
-        txn: txn.get_obj_for_encoding(),
+        txn: (txn as any).get_obj_for_encoding(),
       };
 
       const combined = algosdk.encodeObj(signedObj);
