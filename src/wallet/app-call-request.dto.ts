@@ -143,6 +143,14 @@ export class AppCallRequestDto {
   fee?: number;
 
   @IsString()
+  @IsOptional()
+  @ApiProperty({
+    example: '4TZ4OZYQMBSJCBC7PDWAN4VFN6IKPIAG5NABNFNKRCGLCNBJGH4JTENIQE',
+    description: 'The address of the User that is transferring Algos (Optional)',
+  })
+  fromAddress?: string;
+
+  @IsString()
   @ApiProperty({
     example: '1234',
     description: 'The id of the User that is transferring Algos',

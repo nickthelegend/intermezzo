@@ -166,12 +166,15 @@ export class WalletService {
     fromUserId: string,
     toAddress: string,
     amount: number,
+    fromAddressProvided?: string,
   ): Promise<string> {
     let signedTx: Uint8Array;
     let fromAddress: string;
 
     try {
-      if (fromUserId === 'manager') {
+      if (fromAddressProvided) {
+        fromAddress = fromAddressProvided;
+      } else if (fromUserId === 'manager') {
         const managerPublicKey: Buffer = await this.vaultService.getManagerPublicKey(vault_token);
         fromAddress = new AlgorandEncoder().encodeAddress(managerPublicKey);
       } else {
@@ -388,7 +391,9 @@ export class WalletService {
     let fromAddress: string;
 
     try {
-      if (appCallRequestDto.fromUserId === 'manager') {
+      if (appCallRequestDto.fromAddress) {
+        fromAddress = appCallRequestDto.fromAddress;
+      } else if (appCallRequestDto.fromUserId === 'manager') {
         const managerPublicKey: Buffer = await this.vaultService.getManagerPublicKey(vault_token);
         fromAddress = new AlgorandEncoder().encodeAddress(managerPublicKey);
       } else {

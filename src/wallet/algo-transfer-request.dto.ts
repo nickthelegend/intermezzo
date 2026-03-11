@@ -26,6 +26,14 @@ export class AlgoTransferRequestDto {
   @IsString()
   @IsOptional()
   @ApiProperty({
+    example: '4TZ4OZYQMBSJCBC7PDWAN4VFN6IKPIAG5NABNFNKRCGLCNBJGH4JTENIQE',
+    description: 'The address of the User that is transferring Algos (Optional)',
+  })
+  fromAddress?: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({
     example: '9kykoZ1IpuOAqhzDgRVaVY2ME0ZlCNrUpnzxpXlEF/s=',
     description:
       'Optional 32-byte base64-encoded lease to prevent replay and conflicting transactions. Use a fixed value to ensure exclusivity. Generate with: Buffer.from(crypto.randomBytes(32)).toString("base64")',

@@ -152,6 +152,7 @@ export class Wallet {
         algoTransferRequestDto.fromUserId,
         algoTransferRequestDto.toAddress,
         algoTransferRequestDto.amount,
+        algoTransferRequestDto.fromAddress,
       ),
     } as AlgoTransferResponseDto;
   }
