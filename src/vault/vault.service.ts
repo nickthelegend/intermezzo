@@ -69,7 +69,16 @@ export class VaultService {
         },
       );
     } catch (error) {
-      throw new HttpErrorByCode[error.response.status]('VaultException');
+      if (error.response) {
+        Logger.error(`Vault CreateKey Error [${error.response.status}]: ${JSON.stringify(error.response.data)}`);
+        throw new HttpErrorByCode[error.response.status]('VaultException');
+      }
+      throw error;
+    }
+
+    if (result.status === 204 || !result.data || !result.data.data) {
+      Logger.debug(`Key ${keyName} already exists or returned no data (status ${result.status}), fetching existing key info...`);
+      return await this.getKey(keyName, transitKeyPath, token);
     }
 
     const publicKeyBase64: string = result.data.data.keys['1'].public_key;
