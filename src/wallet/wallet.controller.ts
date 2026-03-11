@@ -251,6 +251,15 @@ export class Wallet {
 
         // Combine signature with ORIGINAL transaction bytes
         const combined = this.walletService.chainService.addSignatureToTxn(new Uint8Array(txnBytes), signature);
+        
+        // VERIFY validity before returning
+        try {
+          algosdk.decodeSignedTransaction(combined);
+        } catch (verifyErr) {
+          console.error(`[Sign] CRITICAL: Manual wrap failed verification: ${verifyErr.message}`);
+          throw new Error("Failed to produce valid signed transaction structure");
+        }
+
         signedTxns.push(Buffer.from(combined).toString('base64'));
       } catch (e) {
         console.error(`[Sign] Error: ${e.message}`, e);
